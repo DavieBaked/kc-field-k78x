@@ -626,6 +626,13 @@ button.mn-age:disabled{opacity:1}
 .mn-age.failed{color:var(--danger)}
 /* red in every theme, including the black-and-white one */
 .mn-age.failed,.mn-line.low .mn-sym,.mn-line.low .mn-v,.mn-bat.low,.ms-bat.low{color:#e5484d}
+/* iPhone setup steps */
+.ms-help{color:var(--muted);font-size:calc(14px * var(--fs));line-height:1.45}
+.ms-help p{margin:0 0 6px}
+.ms-help b{color:var(--ink);font-weight:600}
+.ms-help ol{margin:0 0 8px;padding-left:20px;display:grid;gap:6px}
+.ms-help a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.ms-help .btn{color:var(--ink);margin-top:4px}
 </style>
 </head>
 <body>
@@ -3355,9 +3362,32 @@ button.mn-age:disabled{opacity:1}
   // Checked when needed, not once at load: on iPhone the Safari extension (iOSWebBLE / beacio) may add Bluetooth a moment later.
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const hasBT = () => !inClaude && !!(navigator.bluetooth && navigator.bluetooth.requestDevice);
+  // Which kind of phone or browser this is, so the help says exactly what to do.
+  const ua = navigator.userAgent;
+  const iosOther = isIOS && /CriOS|FxiOS|EdgiOS|OPiOS|GSA\//.test(ua);          // Chrome, Firefox etc. on iPhone: no extensions
+  const iosHome = isIOS && (navigator.standalone === true || matchMedia("(display-mode: standalone)").matches);
+  const macSafari = !isIOS && /Macintosh/.test(ua) && /Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua);
+  const BEACIO = "https://apps.apple.com/app/id6761301368";
   const noBTText = () => inClaude ? "Bluetooth is blocked inside Claude. Use the hosted link."
-    : isIOS ? "On iPhone, install the free iOSWebBLE app, turn on its Safari extension, and open this link in Safari."
+    : iosHome ? "Open this page in Safari to connect. The home-screen app can’t use Bluetooth on iPhone."
+    : iosOther ? "On iPhone, open this page in Safari to connect."
+    : isIOS ? "On iPhone, Safari needs the free beacio extension to use Bluetooth."
+    : macSafari ? "Safari on Mac can’t use Bluetooth. Open this page in Chrome or Edge."
     : "Bluetooth needs Chrome on Android, opened from the hosted link.";
+  // The fuller version shown in the Mesh tab, with steps on iPhone.
+  function noBTHTML(){
+    const link = '<button class="btn" type="button" id="b-mesh-link" data-act="mesh-copylink">Copy link for Safari</button>';
+    if(iosHome || iosOther) return '<div class="ms-help"><p><b>Open this page in Safari to connect.</b></p>' +
+      '<p>' + (iosHome ? "The home-screen app can’t use Bluetooth on iPhone. Everything else here works." : "Only Safari can use Bluetooth on iPhone, through an extension.") + '</p>' +
+      link + '</div>';
+    if(isIOS && !inClaude) return '<div class="ms-help"><p><b>To connect on iPhone, add Bluetooth to Safari once:</b></p><ol>' +
+      '<li>Install <a href="' + BEACIO + '" target="_blank" rel="noopener">beacio</a> (free) from the App Store.</li>' +
+      '<li>Here in Safari, tap <b>aA</b> in the address bar, then <b>Manage Extensions</b>, and turn on <b>beacio</b>.</li>' +
+      '<li>Tap <b>aA</b> again, tap <b>beacio</b>, and choose <b>Allow on Every Website</b>. Not “for one day”: that stops working tomorrow.</li>' +
+      '<li>Reload this page and tap <b>Connect radio</b>.</li></ol>' +
+      '<p>Use it in Safari, not from the home-screen icon.</p></div>';
+    return '<p class="ms-note">' + esc(noBTText()) + '</p>';
+  }
   let btSeen = hasBT();
   setTimeout(() => { if(!btSeen && hasBT()){ btSeen = true; meshChanged(true); } }, 1500);
   // Every GATT read and write goes through one queue: the radio can only do one at a time.
@@ -3797,7 +3827,7 @@ button.mn-age:disabled{opacity:1}
       const had = Object.keys(mesh.nodes).length > 0;
       head = '<span class="ms-dot"></span><span class="ms-t">Not connected</span>' + (had && mesh.lastLive ? '<span class="ms-s">Last data ' + ago(mesh.lastLive) + '</span>' : "");
       const bt = hasBT(); btSeen = btSeen || bt;
-      if(!bt) body = '<p class="ms-note">' + esc(noBTText()) + '</p>';
+      if(!bt) body = noBTHTML();
       acts = (bt ? '<button class="btn primary" type="button" id="b-mesh-on" data-act="' + (had && radio.device ? "mesh-reconnect" : "mesh-connect") + '">' + (had && radio.device ? "Reconnect" : "Connect radio") + '</button>' : "") +
         '<button class="link" type="button" id="b-mesh-demo" data-act="mesh-demo">Try demo</button>';
     }
@@ -3995,6 +4025,10 @@ button.mn-age:disabled{opacity:1}
     else if(act === "mesh-demo-stop"){ stopDemo(); refit(); }
     else if(act === "mesh-sel"){ meshSel = meshSel === num ? null : num; meshChanged(true); if(meshSel != null) setTimeout(() => meshFocus(num), 30); }
     else if(act === "mesh-ask") askNode(num, b.dataset.kind === "pos" ? "pos" : "bat");
+    else if(act === "mesh-copylink"){
+      const u = location.href.split("#")[0];
+      (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast("Link copied. Paste it into Safari."), () => toast(u));
+    }
     else if(act === "mesh-copy"){
       const n = meshStore()[String(num)];
       if(n && n.lat != null) copyText(n.lat.toFixed(6) + ", " + n.lon.toFixed(6)).then(ok => toast(ok ? "Coordinates copied" : n.lat.toFixed(6) + ", " + n.lon.toFixed(6)));
