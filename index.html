@@ -638,6 +638,26 @@ button.mn-age:disabled{opacity:1}
 .tb svg{width:23px;height:23px}
 .tb > span:not(.mdot){position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
 .tb .mdot{position:absolute;top:9px;left:calc(50% + 9px);box-shadow:0 0 0 2px var(--bg)}
+/* hold a node 2 s -> popup with slide to turn off */
+.mn-row,.ms-me{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.mn-row.holding,.ms-me.holding{background-image:linear-gradient(90deg,color-mix(in srgb,#e5484d 18%,transparent) 0 0);background-repeat:no-repeat;background-size:0 100%;animation:mx-hold 2s linear forwards}
+@keyframes mx-hold{from{background-size:0 100%}to{background-size:100% 100%}}
+.mx-pop{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.mx-pop[hidden]{display:none}
+.mx-card{width:100%;max-width:440px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;display:grid;gap:10px}
+.mx-t{margin:0;font-weight:700;font-size:calc(20px * var(--fs))}
+.mx-s{margin:0;color:var(--muted);font-size:calc(14px * var(--fs));line-height:1.4}
+.mx-st{margin:0;min-height:1.2em;font-size:calc(14px * var(--fs));color:var(--muted)}
+.mx-st.bad{color:#e5484d}
+.mx-card .btn{justify-self:stretch}
+.mx-off{--off:0;position:relative;height:52px;border-radius:26px;background:color-mix(in srgb,#e5484d calc(var(--off) * 30% + 6%),var(--bg));border:1px solid color-mix(in srgb,#e5484d 40%,var(--line));overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.mx-off-t{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);opacity:.55;font-weight:700;font-size:calc(15px * var(--fs));pointer-events:none}
+/* the bright copy shows behind the power button as it moves right */
+.mx-off-t.lit{color:#fff;opacity:1;clip-path:inset(0 calc((1 - var(--off)) * 100%) 0 0)}
+.mx-who{margin:-4px 0 0;font-weight:600;font-size:calc(15px * var(--fs))}
+.mx-off-k{position:absolute;z-index:1;left:4px;top:3px;width:44px;height:44px;border-radius:50%;background:#e5484d;color:#fff;display:flex;align-items:center;justify-content:center;cursor:grab;touch-action:none}
+.mx-off-k svg{width:22px;height:22px}
+@media (prefers-reduced-motion: reduce){.mn-row.holding,.ms-me.holding{animation-duration:2s}}
 </style>
 </head>
 <body>
@@ -3457,8 +3477,15 @@ button.mn-age:disabled{opacity:1}
       learn(mesh.nodes, pk.from, Object.assign(base, dmb ? {metrics: readMetrics(dmb)} : {}), t);
       if(dmb) answered(pk.from, "bat");
     }
+    else if(pk.port === PORT.ADMIN){
+      // every admin reply carries the node's session passkey; admin commands to it must send it back
+      const k = PB.bytes(PB.read(pk.payload), 101);
+      if(k && k.length){ adminKeys[pk.from] = {key: k, t: Date.now()}; (adminWait[pk.from] || []).forEach(f => f()); delete adminWait[pk.from]; }
+    }
     else if(pk.port === PORT.ROUTING){
       const r = PB.read(pk.payload), err = PB.u32(r, 3) || 0, a = radio.asked[pk.requestId];
+      const ad = adminReq[pk.requestId];
+      if(ad){ delete adminReq[pk.requestId]; ad(err); }
       if(a && err && err !== 0){
         delete radio.asked[pk.requestId];
         askFailed(a.num, a.kind, err === 3 || err === 5 || err === 8 ? "no answer" : "can’t reach");
@@ -3878,6 +3905,152 @@ button.mn-age:disabled{opacity:1}
   const penBtn = n => '<button class="mn-ic mn-pen" type="button" id="b-nick-' + n.num + '" data-act="mesh-rename" data-num="' + n.num + '" aria-label="Rename" title="Rename">' + ICON.pen + '</button>';
   const starBtn = n => '<button class="mn-ic mn-starbtn' + (starred(n) ? " on" : "") + '" type="button" id="b-star-' + n.num + '" data-act="mesh-star" data-num="' + n.num + '" aria-pressed="' + starred(n) + '" aria-label="Star" title="Star">' + (starred(n) ? ICON.starOn : ICON.star) + '</button>';
   // The opened part of a node: position (tap to copy) and battery, each with its refresh button.
+  /* ---------- turn a radio off: hold a node for 2 s, then slide all the way across ----------
+     My own radio takes the command straight away. Another radio only obeys if its
+     Security → Admin Key holds my radio's public key; it then needs a fresh session passkey first. */
+  const POWER = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8M7.1 6.4a7 7 0 109.8 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+  const adminKeys = {}, adminWait = {}, adminReq = {};
+  const HOLD_MS = 2000;
+  let offDrag = null, offNum = null, hold = null;
+
+  // hold
+  document.addEventListener("pointerdown", e => {
+    const row = e.target.closest && e.target.closest("#main .mn-row, #main .ms-me");
+    if(!row || e.target.closest("button, input, a, .mn-age")) return;
+    const num = +row.dataset.num;
+    clearTimeout(hold && hold.t);
+    row.classList.add("holding");
+    hold = {row, x: e.clientX, y: e.clientY, id: e.pointerId, t: setTimeout(() => {
+      row.classList.remove("holding"); hold.fired = true;
+      if(holdRedraw){ holdRedraw = false; setTimeout(() => meshChanged(true), 0); }
+      if(navigator.vibrate) try{ navigator.vibrate(40); }catch(err){}
+      openOff(num);
+    }, HOLD_MS)};
+  });
+  let holdRedraw = false;
+  const holdStop = () => {
+    if(hold && !hold.fired){ clearTimeout(hold.t); hold.row.classList.remove("holding"); hold = null; }
+    if(holdRedraw){ holdRedraw = false; setTimeout(() => meshChanged(true), 0); }
+  };
+  document.addEventListener("pointermove", e => { if(hold && !hold.fired && e.pointerId === hold.id && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 10) holdStop(); });
+  document.addEventListener("pointerup", holdStop);
+  document.addEventListener("pointercancel", holdStop);
+  window.addEventListener("scroll", holdStop, {passive: true});
+  // the tap that ends a long hold doesn't also open or close the row
+  document.addEventListener("click", e => { if(hold && hold.fired){ hold = null; e.stopPropagation(); e.preventDefault(); } }, true);
+  document.addEventListener("contextmenu", e => { if(e.target.closest && e.target.closest("#main .mn-row, #main .ms-me")) e.preventDefault(); });
+
+  // popup
+  function openOff(num){
+    if(!meshDemo && radio.state !== "live"){ toast("Connect your radio first."); return; }
+    const n = meshStore()[String(num)]; if(!n) return;
+    const mine = num === meshMine();
+    offNum = num;
+    let pop = $("#mx-pop");
+    if(!pop){ pop = document.createElement("div"); pop.id = "mx-pop"; pop.className = "mx-pop"; document.body.appendChild(pop);
+      pop.addEventListener("click", e => { if(e.target === pop || e.target.closest("[data-off-cancel]")) closeOff(); }); }
+    pop.innerHTML = '<div class="mx-card" role="dialog" aria-modal="true" aria-labelledby="mx-pop-t">' +
+      '<p class="mx-t" id="mx-pop-t">Are you locked in?</p>' +
+      '<p class="mx-who">Turning off ' + esc(mine ? radioName(n) : nodeName(n)) + '</p>' +
+      '<p class="mx-s">Its button turns it back on. Nothing can wake it remotely.' + (mine ? "" : " It only obeys if its Admin Key is your radio’s public key.") + '</p>' +
+      '<div class="mx-off" id="mx-off"><span class="mx-off-t" aria-hidden="true">I’m locked in</span><span class="mx-off-t lit" aria-hidden="true">I’m locked in</span>' +
+      '<span class="mx-off-k" id="mx-off-k" role="slider" tabindex="0" aria-label="Slide to turn off: I’m locked in" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' + POWER + '</span></div>' +
+      '<p class="mx-st" id="mx-st" aria-live="polite"></p>' +
+      '<button class="btn" type="button" data-off-cancel>Cancel</button></div>';
+    pop.hidden = false;
+    setTimeout(() => { const k = $("#mx-off-k"); if(k) k.focus({preventScroll: true}); }, 30);
+  }
+  function closeOff(){ const pop = $("#mx-pop"); if(pop) pop.hidden = true; offNum = null; offDrag = null; }
+  document.addEventListener("keydown", e => { if(e.key === "Escape" && offNum != null) closeOff(); });
+  const offStatus = (t, bad) => { const s = $("#mx-st"); if(s){ s.textContent = t; s.classList.toggle("bad", !!bad); } };
+
+  // slider
+  function offSet(k, f){
+    const tr = k.parentNode, max = tr.clientWidth - k.offsetWidth - 8;
+    k.style.transform = "translateX(" + (f * max) + "px)";
+    k.setAttribute("aria-valuenow", Math.round(f * 100));
+    tr.style.setProperty("--off", f);
+  }
+  function offBack(k){ k.style.transition = "transform .25s ease"; offSet(k, 0); setTimeout(() => { k.style.transition = ""; }, 260); }
+  function offRelease(k, f){
+    if(f >= 0.96){ offSet(k, 1); k.parentNode.classList.add("done"); turnOff(offNum); return; }
+    offBack(k);
+  }
+  document.addEventListener("pointerdown", e => {
+    const k = e.target.closest && e.target.closest("#mx-off-k"); if(!k || k.parentNode.classList.contains("done")) return;
+    e.preventDefault(); k.setPointerCapture(e.pointerId);
+    offDrag = {k, x0: e.clientX, max: k.parentNode.clientWidth - k.offsetWidth - 8, f: 0, id: e.pointerId};
+    k.style.transition = "";
+  });
+  document.addEventListener("pointermove", e => {
+    if(!offDrag || e.pointerId !== offDrag.id) return;
+    offDrag.f = Math.max(0, Math.min(1, (e.clientX - offDrag.x0) / offDrag.max));
+    offSet(offDrag.k, offDrag.f);
+  });
+  document.addEventListener("pointerup", e => { if(!offDrag || e.pointerId !== offDrag.id) return; const d = offDrag; offDrag = null; offRelease(d.k, d.f); });
+  document.addEventListener("pointercancel", e => { if(!offDrag || e.pointerId !== offDrag.id) return; const d = offDrag; offDrag = null; offBack(d.k); });
+  document.addEventListener("keydown", e => {
+    const k = e.target.closest && e.target.closest("#mx-off-k"); if(!k || k.parentNode.classList.contains("done")) return;
+    if(e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    e.preventDefault();
+    const f = Math.max(0, Math.min(1, (+k.getAttribute("aria-valuenow") + (e.key === "ArrowRight" ? 10 : -10)) / 100));
+    offSet(k, f); if(f >= 1) offRelease(k, 1);
+  });
+  function offRetry(why){
+    offStatus(why, true);
+    const tr = $("#mx-off"), k = $("#mx-off-k");
+    if(tr && k){ tr.classList.remove("done"); offBack(k); }
+  }
+
+  // sending
+  const ADMIN_WHY = {33: "isn’t set to take orders from your radio. Put your radio’s public key in its Security → Admin Key.",
+    37: "isn’t set to take orders from your radio. Put your radio’s public key in its Security → Admin Key.",
+    34: "couldn’t be sent securely. Try again once your radio has heard it.",
+    35: "isn’t known well enough yet to send it a secure order. Try again once your radio has heard it.",
+    3: "didn’t answer.", 5: "didn’t answer.", 8: "didn’t answer."};
+  function adminSend(num, ch, fields, wantResponse){
+    const id = packetId();
+    const done = new Promise(res => { adminReq[id] = res; setTimeout(() => { if(adminReq[id]){ delete adminReq[id]; res(-1); } }, 60e3); });
+    return send(toRadio.packet({from: radio.num, to: num, ch: ch || 0, port: PORT.ADMIN, payload: PB.write(fields), id, wantAck: true, wantResponse}))
+      .then(() => done, () => -2);
+  }
+  function sessionKey(n){
+    const c = adminKeys[n.num];
+    if(c && Date.now() - c.t < 4 * 60e3) return Promise.resolve(c.key);
+    return new Promise(res => {
+      const ok = () => { clearTimeout(t); res(adminKeys[n.num].key); };
+      const t = setTimeout(() => { adminWait[n.num] = (adminWait[n.num] || []).filter(f => f !== ok); res(null); }, 30e3);
+      (adminWait[n.num] = adminWait[n.num] || []).push(ok);
+      // something cheap that the node answers with a fresh passkey
+      adminSend(n.num, n.ch, [[12, "v", true]], true).then(err => { if(err > 0){ clearTimeout(t); res({err}); } });
+    });
+  }
+  async function turnOff(num){
+    const n = meshStore()[String(num)]; if(!n) return;
+    const name = num === meshMine() ? radioName(n) : nodeName(n);
+    if(meshDemo){ offStatus("Demo: " + name + " would turn off now."); setTimeout(closeOff, 1400); return; }
+    if(radio.state !== "live"){ offRetry("Your radio isn’t connected."); return; }
+    if(num === radio.num){
+      // AdminMessage.shutdown_seconds (98) to my own radio
+      const ok = await send(toRadio.packet({from: radio.num, to: radio.num, port: PORT.ADMIN, payload: PB.write([[98, "v", 3]]), id: packetId(), wantAck: true})).then(() => true, () => false);
+      if(!ok){ offRetry("Couldn’t reach your radio."); return; }
+      closeOff(); toast("Radio turning off. Press its button to turn it back on.");
+      setTimeout(disconnectRadio, 1500);
+      return;
+    }
+    offStatus("Asking " + name + " for access…");
+    for(let tries = 0; tries < 2; tries++){
+      const key = await sessionKey(n);
+      if(!key || key.err){ offRetry(name + " " + (key && ADMIN_WHY[key.err] || "didn’t answer. Is its Admin Key set to your radio’s public key?")); return; }
+      offStatus("Turning off " + name + "…");
+      const err = await adminSend(n.num, n.ch, [[98, "v", 3], [101, "b", key]], false);
+      if(err === 36){ delete adminKeys[n.num]; continue; }            // passkey went stale: get a new one, once
+      if(err === 0){ closeOff(); toast(name + " is turning off."); return; }
+      offRetry(err === -1 ? "No confirmation from " + name + ". It may still turn off." : err === -2 ? "Couldn’t reach your radio." : name + " " + (ADMIN_WHY[err] || "refused (error " + err + ")."));
+      return;
+    }
+    offRetry(name + " rejected the session. Try again.");
+  }
   function detailHTML(n, isMe){
     const b = batText(n), hasPos = n.lat != null, renaming = meshRename === n.num;
     const coords = hasPos ? n.lat.toFixed(5) + ", " + n.lon.toFixed(5) : "";
@@ -3933,6 +4106,8 @@ button.mn-age:disabled{opacity:1}
       if(view.mode !== "day" || dayTab !== "mesh") return;
       if(!$("#map") && meshHasPositions()){ render(); return; }
       const st = $("#mesh-status"), li = $("#mesh-list");
+      // a node being held keeps its row: redraw the list once the finger lifts
+      if(hold && !hold.fired){ drawNodes(); holdRedraw = true; return; }
       if(st && meshRename !== meshMine()) st.innerHTML = meshStatusHTML();
       if(li && meshRename == null) li.innerHTML = meshListHTML();
       drawNodes();
