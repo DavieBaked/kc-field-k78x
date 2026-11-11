@@ -4036,11 +4036,15 @@ button.mn-age:disabled{opacity:1}
     const c = adminKeys[n.num];
     if(c && Date.now() - c.t < 4 * 60e3) return Promise.resolve(c.key);
     return new Promise(res => {
-      const ok = () => { clearTimeout(t); res(adminKeys[n.num].key); };
-      const t = setTimeout(() => { adminWait[n.num] = (adminWait[n.num] || []).filter(f => f !== ok); res(null); }, 30e3);
+      let over = false, tries = [];
+      const finish = v => { if(over) return; over = true; tries.forEach(clearTimeout); clearTimeout(t); adminWait[n.num] = (adminWait[n.num] || []).filter(f => f !== ok); res(v); };
+      const ok = () => finish(adminKeys[n.num].key);
+      const t = setTimeout(() => finish(null), 45e3);
       (adminWait[n.num] = adminWait[n.num] || []).push(ok);
-      // something cheap that the node answers with a fresh passkey
-      adminSend(n.num, n.ch, [[12, "v", true]], true).then(err => { if(err > 0){ clearTimeout(t); res({err}); } });
+      // something cheap that the node answers with a fresh passkey; LoRa drops packets, so ask up to 3 times
+      const ask = i => { if(over) return; if(i) offStatus("Asking " + nodeName(n) + " for access… try " + (i + 1) + " of 3");
+        adminSend(n.num, n.ch, [[12, "v", true]], true).then(err => { if(err > 0) finish({err}); }); };
+      ask(0); tries = [setTimeout(() => ask(1), 15e3), setTimeout(() => ask(2), 30e3)];
     });
   }
   async function turnOff(num){
@@ -4059,7 +4063,7 @@ button.mn-age:disabled{opacity:1}
     offStatus("Asking " + name + " for access…");
     for(let tries = 0; tries < 2; tries++){
       const key = await sessionKey(n);
-      if(!key || key.err){ offRetry(name + " " + (key && ADMIN_WHY[key.err] || "didn’t answer. Is its Admin Key set to your radio’s public key?")); return; }
+      if(!key || key.err){ offRetry(key && ADMIN_WHY[key.err] ? name + " " + ADMIN_WHY[key.err] : "No reply from " + name + " after 3 tries. That’s not a refusal: the messages didn’t make it there and back. Check it answers a refresh, or try from closer."); return; }
       offStatus("Turning off " + name + "…");
       const err = await adminSend(n.num, n.ch, [[98, "v", 3], [101, "b", key]], false);
       if(err === 36){ delete adminKeys[n.num]; continue; }            // passkey went stale: get a new one, once
