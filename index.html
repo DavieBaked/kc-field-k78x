@@ -613,6 +613,9 @@ button.mn-age:disabled{opacity:1}
 .mn-pen{display:inline-flex;align-items:center;justify-content:center;flex:none;width:26px;height:26px;margin:-6px 0;padding:0;border-radius:6px;align-self:center}
 .mn-pen svg{width:14px;height:14px;display:block}
 .mn-pen svg{transform:translateY(-1px)}
+/* battery line in an open node: the icon shows the level, red when low, a bolt when plugged in */
+.mn-sym .bat-i{width:22px;height:12px}
+.mn-line.low .mn-sym,.mn-line.low .mn-v{color:var(--danger)}
 </style>
 </head>
 <body>
@@ -3722,7 +3725,9 @@ button.mn-age:disabled{opacity:1}
   function batIcon(n){
     const lvl = n.bat == null ? 0 : n.bat > 100 ? 1 : n.bat / 100;
     return '<svg class="bat-i" viewBox="0 0 26 14" aria-hidden="true"><rect x="1" y="1.5" width="21" height="11" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/>' +
-      '<rect x="23.2" y="5" width="2" height="4" rx="1" fill="currentColor"/><rect x="3" y="3.5" width="' + (17 * lvl).toFixed(1) + '" height="7" rx="1.2" fill="currentColor"/></svg>';
+      '<rect x="23.2" y="5" width="2" height="4" rx="1" fill="currentColor"/>' +
+      (n.bat > 100 ? '<path d="M13.2 2.6L7.8 7.6h3.6l-1.6 3.8 5.4-5h-3.6z" fill="currentColor"/>'
+        : '<rect x="3" y="3.5" width="' + (17 * lvl).toFixed(1) + '" height="7" rx="1.2" fill="currentColor"/>') + '</svg>';
   }
   function distTo(a, b){
     if(a.lat == null || b.lat == null) return null;
@@ -3794,7 +3799,8 @@ button.mn-age:disabled{opacity:1}
     const what = kind === "pos" ? "position" : "battery";
     const age = asked ? "asking…" : (fresh ? "updated " : "") + (t ? ago(t) : "unknown");
     const cls = asked ? "" : fresh ? "fresh" : ageClass(t);
-    return '<div class="mn-line"><span class="mn-sym" title="' + (kind === "pos" ? "Position" : "Battery") + '">' + (kind === "pos" ? ICON.pin : ICON.bat) + '</span>' +
+    const bc = kind === "bat" ? batText(n).c : "";
+    return '<div class="mn-line' + (bc ? " " + bc : "") + '"><span class="mn-sym" title="' + (kind === "pos" ? "Position" : "Battery") + '">' + (kind === "pos" ? ICON.pin : batIcon(n)) + '</span>' +
       '<span class="mn-v">' + value + '</span>' +
       (isMe ? '<span class="mn-age ' + cls + '">' + age + '</span>'
         : '<button class="mn-age ' + cls + '" type="button" id="b-ask-' + kind + '-' + n.num + '" data-act="mesh-ask" data-kind="' + kind + '" data-num="' + n.num + '"' + (can && !asked ? "" : " disabled") +
