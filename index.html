@@ -578,8 +578,8 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
 .mn-ic svg{width:18px;height:18px}
 .mn-ic:active{background:color-mix(in srgb,var(--ink) 10%,transparent)}
 .mn-ic:disabled{opacity:.35}
-.mn-pen{width:30px;height:30px;margin:-6px 0}
-.mn-pen svg{width:16px;height:16px}
+.mn-pen{width:28px;height:1.4em;margin:0;border-radius:6px;align-self:center}
+.mn-pen svg{width:15px;height:15px;display:block}
 .mn-starbtn.on{color:var(--accent)}
 .mn-lab{display:flex;align-items:center;gap:2px;color:var(--muted)}
 .mn-sym{display:grid;place-items:center;width:24px}
@@ -606,6 +606,9 @@ button.mn-age:disabled{opacity:1}
 .mn-det{gap:2px}
 .mn-v .mn-coords{font-size:calc(13.5px * var(--fs));letter-spacing:-.02em}
 .mn-age{font-size:calc(12px * var(--fs))}
+.mn-ident{margin:4px 0 0;color:var(--muted);font-size:calc(12px * var(--fs));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mn-name{line-height:1.4}
+.mn-nm{line-height:1.4}
 </style>
 </head>
 <body>
@@ -3809,7 +3812,7 @@ button.mn-age:disabled{opacity:1}
       kvRow(n, isMe, "pos", hasPos ? '<button class="mn-coords mono" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '" aria-label="Copy coordinates">' + coords + '</button>' : '<span class="mn-none">none yet</span>', hasPos ? n.posT : null) +
       (isMe ? "" : kvRow(n, isMe, "bat", n.bat == null ? '<span class="mn-none">not shared yet</span>' : b.t + (n.volt ? '<span class="mn-volt"> · ' + n.volt.toFixed(2) + " V</span>" : ""), n.bat == null ? null : n.batT)) +
       (isMe ? "" : '<div class="mn-line"><span class="mn-sym" title="Hops">' + BUNNY + '</span><span class="mn-v">' + (n.hops != null ? n.hops : "–") + '</span><span class="mn-age mn-type">' + esc(hwName(n)) + '</span></div>') +
-      (nickOf(n) && !renaming ? '<p class="mn-asked">Radio name: ' + esc(radioName(n)) + '</p>' : "") +
+      (renaming ? "" : '<p class="mn-ident">' + esc([n.long || n.short, n.id || hex(n.num)].filter(Boolean).join(" · ")) + '</p>') +
       '</div>';
   }
   function meshListHTML(){
