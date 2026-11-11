@@ -686,6 +686,13 @@ button.mn-age:disabled{opacity:1}
 .ms-mebox{margin:0 -16px;display:grid}
 .ms-mebox .ms-me{width:100%;margin:0}
 .ms .ms-mebox .mn-det{margin:0}
+/* my radio card: big status word, coffee cup far right, my radio laid out like the other nodes */
+.ms .ms-t{font-size:calc(20px * var(--fs))}
+.ms-cup{margin-left:auto;display:grid;place-items:center;width:40px;height:40px;margin-right:-8px;border:0;border-radius:10px;background:none;color:var(--muted)}
+.ms-cup svg{width:22px;height:22px}
+.ms-cup.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.ms-mebox .ms-me.mn-row{width:100%;margin:0;padding:8px 16px;min-height:62px}
+.ms-mebox .ms-me.sel{background:color-mix(in srgb,var(--accent) 8%,transparent)}
 </style>
 </head>
 <body>
@@ -2701,11 +2708,11 @@ button.mn-age:disabled{opacity:1}
     }catch(e){
       if(e && e.name === "AbortError") return;
       // some apps refuse files + text together: copy the text, share the picture alone
-      try{ if(f && navigator.share){ await copyText(text); await navigator.share({files: [f]}); toast("Text copied. Paste it as the caption."); closeSummary(); return; } }catch(e2){ if(e2 && e2.name === "AbortError") return; }
+      try{ if(f && navigator.share){ await copyText(text); await navigator.share({files: [f]}); toast("Paste the text as the caption."); closeSummary(); return; } }catch(e2){ if(e2 && e2.name === "AbortError") return; }
       // no sharing here (for example on a computer): copy the text and save the picture
       const ok = text.trim() ? await copyText(text) : false;
       const saved = f ? await saveFile(f.name, f, "image/png") === "saved" : false;
-      toast(saved ? (ok ? "Text copied and image saved" : "Image saved") : (ok ? "Text copied" : "Couldn’t share from here"));
+      if(saved) toast("Image saved"); else if(!ok) toast("Couldn’t share from here");
     }
   }
   function closeSummary(){ $("#summary").hidden = true; }
@@ -2742,7 +2749,7 @@ button.mn-age:disabled{opacity:1}
         ta.remove();
       }catch(e){}
     }
-    if(ok) toast("List copied. Paste it into a message or note.");
+    
     else openSheet("copy", text);
   }
   function openSheet(mode, text){
@@ -2884,7 +2891,7 @@ button.mn-age:disabled{opacity:1}
     else if(act === "theme-copy"){
       const name = (themeOf(themeId) || BASE[themeId]).name;
       copyText(themeJson(themeId)).then(ok => {
-        if(ok) toast(name + " theme copied");
+        if(ok){}
         else { $("#th-paste").hidden = false; $("#th-text").value = themeJson(themeId); $("#th-text").select(); toast("Select the text and copy it."); }
       });
     }
@@ -3822,21 +3829,27 @@ button.mn-age:disabled{opacity:1}
     return (d < 1000 ? Math.round(d / 10) * 10 + " m" : (d / 1000).toFixed(d < 10000 ? 1 : 0) + " km") + " " + dir;
   }
   const radioLabel = () => esc(mesh.devName || "your radio");
+  const CUP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h12v5a5 5 0 01-5 5H9a5 5 0 01-5-5V9zM16 10.5h1.5a2.5 2.5 0 010 5H16M8 2.8c-.6.9.6 1.6 0 2.6M12 2.8c-.6.9.6 1.6 0 2.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function meshStatusHTML(){
     const me = meshStore()[String(meshMine())];
     const myBat = me && me.bat != null ? batText(me) : null;
     const meSel = me && meshSel === me.num;
-    const batRow = me ? '<div class="ms-bat ms-me' + (myBat && myBat.c ? " " + myBat.c : "") + (meSel ? " sel" : "") + '" role="button" tabindex="0" id="mn-' + me.num + '" data-act="mesh-sel" data-num="' + me.num + '" aria-expanded="' + meSel + '">' + batIcon(me) +
-      '<span class="ms-bat-n">' + (myBat ? myBat.t : "–") + '</span><span class="ms-bat-l"><b>' + esc(nodeName(me)) + '</b>' + (meSel ? penBtn(me) : "") + (me.batT && radio.state !== "live" && !meshDemo ? '<span> · ' + ago(me.batT) + '</span>' : "") + '</span>' +
-      '<span class="ms-chev" aria-hidden="true">' + (meSel ? "▴" : "▾") + '</span></div>' + (meSel ? detailHTML(me, true) : "") : "";
+    const live = meshDemo || radio.state === "live";
+    const meSub = live ? "Your radio" : (me && me.heard ? "Your radio · heard " + ago(me.heard) : "Your radio");
+    const batRow = me ? '<div class="ms-me mn-row' + (meSel ? " sel" : "") + '" role="button" tabindex="0" id="mn-' + me.num + '" data-act="mesh-sel" data-num="' + me.num + '" aria-expanded="' + meSel + '">' +
+      '<span class="mn-badge me">' + esc(nodeShort(me)) + '</span>' +
+      '<span class="mn-txt"><span class="mn-name"><span class="mn-nm">' + esc(nodeName(me)) + '</span>' + (meSel ? penBtn(me) : "") + '</span>' +
+      '<span class="mn-sub">' + esc(meSub) + '</span></span>' +
+      '<span class="mn-end"><span class="mn-bat ' + (myBat ? myBat.c : "") + '">' + batIcon(me) + '<span>' + (myBat ? myBat.t : "–") + '</span></span></span></div>' +
+      (meSel ? detailHTML(me, true) : "") : "";
     const meBox = batRow ? '<div class="ms-mebox">' + batRow + '</div>' : "";
     let head = "", body = "", acts = "";
     if(meshDemo){
       head = '<span class="ms-dot demo"></span><span class="ms-t">Demo</span><span class="ms-s">Made-up nodes, nothing real</span>';
       acts = '<button class="btn" type="button" id="b-mesh-demo-stop" data-act="mesh-demo-stop">Stop demo</button>';
     } else if(radio.state === "live"){
-      head = '<span class="ms-dot live"></span><span class="ms-t">Connected</span><span class="ms-s">' + radioLabel() + '</span>';
-      acts = '<button class="link" type="button" id="b-mesh-off" data-act="mesh-disconnect">Disconnect</button>';
+      head = '<span class="ms-dot live"></span><span class="ms-t">Connected</span>';
+      acts = meSel ? '<button class="link" type="button" id="b-mesh-off" data-act="mesh-disconnect">Disconnect</button>' : "";
     } else if(radio.state === "connecting" || radio.state === "syncing"){
       head = '<span class="ms-dot busy"></span><span class="ms-t">' + (radio.state === "connecting" ? "Connecting" : "Loading nodes") + '</span><span class="ms-s">' +
         (radio.state === "syncing" && radio.synced ? radio.synced + " so far" : radioLabel()) + '</span>';
@@ -3854,10 +3867,10 @@ button.mn-age:disabled{opacity:1}
       acts = (bt ? '<button class="btn primary" type="button" id="b-mesh-on" data-act="' + (had && radio.device ? "mesh-reconnect" : "mesh-connect") + '">' + (had && radio.device ? "Reconnect" : "Connect radio") + '</button>' : "") +
         '<button class="link" type="button" id="b-mesh-demo" data-act="mesh-demo">Try demo</button>';
     }
-    const live = meshDemo || radio.state === "live";
-    const wake = live && navigator.wakeLock ? '<button class="ms-wake" type="button" role="switch" aria-checked="' + wakeOn + '" id="b-mesh-wake" data-act="mesh-wake"><span>Keep screen on</span><span class="sw" aria-hidden="true"></span></button>' : "";
+    const cup = live && navigator.wakeLock ? '<button class="ms-cup' + (wakeOn ? " on" : "") + '" type="button" aria-pressed="' + wakeOn + '" id="b-mesh-wake" data-act="mesh-wake" aria-label="Keep the screen on">' + CUP + '</button>' : "";
+    head += cup;
     return '<div class="card ms' + (radio.state === "lost" && !meshDemo ? " lost" : "") + '"><div class="ms-head">' + head + '</div>' + body + meBox +
-      '<div class="ms-acts">' + acts + '</div>' + wake + '</div>';
+      '<div class="ms-acts">' + acts + '</div></div>';
   }
   const ICON = {
     refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -4222,17 +4235,17 @@ button.mn-age:disabled{opacity:1}
     else if(act === "mesh-ask") askNode(num, b.dataset.kind === "pos" ? "pos" : "bat");
     else if(act === "mesh-copylink"){
       const u = location.href.split("#")[0];
-      (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast("Link copied. Paste it into Safari."), () => toast(u));
+      (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => {}, () => toast(u));
     }
     else if(act === "mesh-copy"){
       const n = meshStore()[String(num)];
-      if(n && n.lat != null) copyText(n.lat.toFixed(6) + ", " + n.lon.toFixed(6)).then(ok => toast(ok ? "Coordinates copied" : n.lat.toFixed(6) + ", " + n.lon.toFixed(6)));
+      if(n && n.lat != null) copyText(n.lat.toFixed(6) + ", " + n.lon.toFixed(6)).then(ok => { if(!ok) toast(n.lat.toFixed(6) + ", " + n.lon.toFixed(6)); });
     }
     else if(act === "mesh-star"){ const k = String(num); if(mesh.star[k]) delete mesh.star[k]; else mesh.star[k] = true; meshSaveNow(); meshChanged(true); drawNodes(); }
     else if(act === "mesh-rename"){ meshRename = num; const li = $("#mesh-list"), st = $("#mesh-status"); if(li) li.innerHTML = meshListHTML(); if(st) st.innerHTML = meshStatusHTML(); const i = document.getElementById("nick-" + num); if(i){ i.focus(); i.select(); fitAboveKeyboard(i.closest(".mn, .ms-me") || i); } }
     else if(act === "mesh-rename-cancel"){ meshRename = null; meshChanged(true); }
     else if(act === "mesh-old"){ meshOld = !meshOld; meshChanged(true); }
-    else if(act === "mesh-wake"){ wakeOn = !wakeOn; try{ localStorage.setItem("flightDayLog.wake", wakeOn ? "1" : "0"); }catch(e){} applyWake(); meshChanged(true); }
+    else if(act === "mesh-wake"){ wakeOn = !wakeOn; try{ localStorage.setItem("flightDayLog.wake", wakeOn ? "1" : "0"); }catch(e){} applyWake(); meshChanged(true); toast(wakeOn ? "Screen will stay on" : "Screen can turn off again"); }
     else return false;
     return true;
   }
