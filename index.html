@@ -709,6 +709,7 @@ button.mn-age:disabled{opacity:1}
 .sum-prev{-webkit-user-drag:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 body.has-tabs #main{min-height:calc(100vh - 120px)}
 body.has-tabs #main > *{align-content:start}
+.sum-tab.has-pic .notes{min-height:0}
 </style>
 </head>
 <body>
@@ -4160,7 +4161,10 @@ body.has-tabs #main > *{align-content:start}
     const head = day.kml ? '<div class="blk-head"><div class="blk-tot"><span class="blk-big">' + bs.done + "/" + bs.total + '</span> <span>blocks flown</span></div>' +
       '<div class="blk-ha">' + fmtHa(bs.doneHa) + " of " + fmtHa(bs.totalHa) + ' ha</div></div>' : "";
     const prev = '<img class="sum-img sum-prev" id="sum-prev" draggable="false" alt="The picture that will be shared: the day’s blocks, flown ones marked" hidden>';
-    return '<div class="blk-tab sum-tab">' + head + prev + (cut >= 0 ? h.slice(cut) : "");
+    // with the picture showing, the notes box starts two lines tall so Share stays on screen (it grows as you type)
+    let rest = cut >= 0 ? h.slice(cut) : "";
+    if(day.kml) rest = rest.replace('id="f-notes" data-field="notes" rows="4"', 'id="f-notes" data-field="notes" rows="2"');
+    return '<div class="blk-tab sum-tab' + (day.kml ? " has-pic" : "") + '">' + head + prev + rest;
   }
   // The same picture Share sends, drawn into the Summary tab.
   function summaryPreview(day){
