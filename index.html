@@ -639,15 +639,16 @@ button.mn-age:disabled{opacity:1}
 .tb > span:not(.mdot){position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
 .tb .mdot{position:absolute;top:9px;left:calc(50% + 9px);box-shadow:0 0 0 2px var(--bg)}
 /* hold a node 2 s -> popup with slide to turn off */
-.mn-row,.ms-me{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
-.mn-row.holding,.ms-me.holding{background-image:linear-gradient(90deg,color-mix(in srgb,#e5484d 18%,transparent) 0 0);background-repeat:no-repeat;background-size:0 100%;animation:mx-hold 2s linear forwards}
+.mn-row,.ms-me,.mn-det{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.mn-row.holding,.ms-me.holding,.mn-det.holding{background-image:linear-gradient(90deg,color-mix(in srgb,#e5484d 18%,transparent) 0 0);background-repeat:no-repeat;background-size:0 100%;animation:mx-hold 2s linear forwards}
 @keyframes mx-hold{from{background-size:0 100%}to{background-size:100% 100%}}
 .mx-pop{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
 .mx-pop[hidden]{display:none}
 .mx-card{width:100%;max-width:440px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;display:grid;gap:10px}
 .mx-t{margin:0;font-weight:700;font-size:calc(20px * var(--fs))}
 .mx-s{margin:0;color:var(--muted);font-size:calc(14px * var(--fs));line-height:1.4}
-.mx-st{margin:0;min-height:1.2em;font-size:calc(14px * var(--fs));color:var(--muted)}
+.mx-st:empty{display:none}
+.mx-st{margin:0;font-size:calc(14px * var(--fs));color:var(--muted)}
 .mx-st.bad{color:#e5484d}
 .mx-card .btn{justify-self:stretch}
 .mx-off{--off:0;position:relative;height:52px;border-radius:26px;background:color-mix(in srgb,#e5484d calc(var(--off) * 30% + 6%),var(--bg));border:1px solid color-mix(in srgb,#e5484d 40%,var(--line));overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -659,6 +660,13 @@ button.mn-age:disabled{opacity:1}
 .mx-off-k svg{width:22px;height:22px}
 @media (prefers-reduced-motion: reduce){.mn-row.holding,.ms-me.holding{animation-duration:2s}}
 .mx-card .btn[disabled]{opacity:.45}
+/* power-off popup: tidy */
+.mx-card{gap:0;padding:20px}
+.mx-t{margin-bottom:4px}
+.mx-card .mx-who{margin:0 0 2px}
+.mx-card .mx-s{margin:0 0 16px}
+.mx-card .mx-st{margin:10px 0 0}
+.mx-card [data-off-cancel]{margin-top:10px}
 </style>
 </head>
 <body>
@@ -3916,8 +3924,8 @@ button.mn-age:disabled{opacity:1}
 
   // hold
   document.addEventListener("pointerdown", e => {
-    const row = e.target.closest && e.target.closest("#main .mn-row, #main .ms-me");
-    if(!row || e.target.closest("button, input, a, .mn-age")) return;
+    const row = e.target.closest && e.target.closest("#main .mn-row, #main .ms-me, #main .mn-det");
+    if(!row || e.target.closest("button, input, a, form, .mn-age")) return;
     const num = +row.dataset.num;
     clearTimeout(hold && hold.t);
     row.classList.add("holding");
@@ -3939,7 +3947,7 @@ button.mn-age:disabled{opacity:1}
   window.addEventListener("scroll", holdStop, {passive: true});
   // the tap that ends a long hold doesn't also open or close the row
   document.addEventListener("click", e => { if(hold && hold.fired){ hold = null; e.stopPropagation(); e.preventDefault(); } }, true);
-  document.addEventListener("contextmenu", e => { if(e.target.closest && e.target.closest("#main .mn-row, #main .ms-me")) e.preventDefault(); });
+  document.addEventListener("contextmenu", e => { if(e.target.closest && e.target.closest("#main .mn-row, #main .ms-me, #main .mn-det")) e.preventDefault(); });
 
   // popup
   function openOff(num){
@@ -3950,17 +3958,14 @@ button.mn-age:disabled{opacity:1}
     let pop = $("#mx-pop");
     if(!pop){ pop = document.createElement("div"); pop.id = "mx-pop"; pop.className = "mx-pop"; document.body.appendChild(pop);
       pop.addEventListener("click", e => {
-        const ck = e.target.closest("[data-copy-key]");
-        if(ck){ const k = ck.dataset.copyKey; (navigator.clipboard ? navigator.clipboard.writeText(k) : Promise.reject()).then(() => toast("Key copied. Paste it into the other radio’s Admin Key."), () => toast(k)); return; }
         if(e.target === pop || e.target.closest("[data-off-cancel]")) closeOff(); }); }
     pop.innerHTML = '<div class="mx-card" role="dialog" aria-modal="true" aria-labelledby="mx-pop-t">' +
       '<p class="mx-t" id="mx-pop-t">Are you locked in?</p>' +
-      '<p class="mx-who">Turning off ' + esc(mine ? radioName(n) : nodeName(n)) + '</p>' +
-      '<p class="mx-s">Its button turns it back on. Nothing can wake it remotely.' + (mine ? "" : " It only obeys if its Admin Key is your radio’s public key.") + '</p>' +
+      '<p class="mx-who">Turn off ' + esc(mine ? radioName(n) : nodeName(n)) + '</p>' +
+      '<p class="mx-s">Only its own button turns it back on.</p>' +
       '<div class="mx-off" id="mx-off"><span class="mx-off-t" aria-hidden="true">I’m locked in</span><span class="mx-off-t lit" aria-hidden="true">I’m locked in</span>' +
       '<span class="mx-off-k" id="mx-off-k" role="slider" tabindex="0" aria-label="Slide to turn off: I’m locked in" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' + POWER + '</span></div>' +
       '<p class="mx-st" id="mx-st" aria-live="polite"></p>' +
-      (n.pk ? '<button class="btn" type="button" data-copy-key="' + esc(n.pk) + '">Copy ' + (mine ? "my radio’s" : "its") + ' public key</button>' : "") +
       '<button class="btn" type="button" data-off-cancel>Cancel</button></div>';
     pop.hidden = false;
     setTimeout(() => { const k = $("#mx-off-k"); if(k) k.focus({preventScroll: true}); }, 30);
@@ -4063,7 +4068,7 @@ button.mn-age:disabled{opacity:1}
   function detailHTML(n, isMe){
     const b = batText(n), hasPos = n.lat != null, renaming = meshRename === n.num;
     const coords = hasPos ? n.lat.toFixed(5) + ", " + n.lon.toFixed(5) : "";
-    return '<div class="mn-det">' +
+    return '<div class="mn-det" data-num="' + n.num + '">' +
       (renaming
         ? '<form class="mn-rename" data-num="' + n.num + '"><input id="nick-' + n.num + '" type="text" maxlength="30" autocomplete="off" placeholder="' + esc(radioName(n)) + '" value="' + esc(nickOf(n)) + '" aria-label="Nickname">' +
           '<div class="mn-rename-b"><button class="btn" type="button" data-act="mesh-rename-cancel">Cancel</button><button class="btn primary" type="submit">Save</button></div></form>' +
