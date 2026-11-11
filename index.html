@@ -607,12 +607,12 @@ button.mn-age:disabled{opacity:1}
 .mn-v .mn-coords{font-size:calc(13.5px * var(--fs));letter-spacing:-.02em}
 .mn-age{font-size:calc(12px * var(--fs))}
 .mn-ident{margin:4px 0 0;color:var(--muted);font-size:calc(12px * var(--fs));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mn-name{line-height:1.4}
-.mn-nm{line-height:1.4}
-/* pen sits on the text baseline and is about as tall as the capitals, in any font */
-.mn-name,.ms-bat-l{align-items:baseline}
-.mn-pen{display:inline-flex;align-self:baseline;width:auto;height:auto;padding:6px 6px 0;margin:-6px 0 0;border-radius:6px}
-.mn-pen svg{width:.78em;height:.78em;transform:translateY(.1em)}
+/* name and pen share one row, centred on each other */
+.mn-name,.ms-bat-l{display:flex;align-items:center;gap:2px;line-height:1.2}
+.mn-nm,.ms-bat-l b{line-height:1.2}
+.mn-pen{display:inline-flex;align-items:center;justify-content:center;flex:none;width:26px;height:26px;margin:-6px 0;padding:0;border-radius:6px;align-self:center}
+.mn-pen svg{width:14px;height:14px;display:block}
+.mn-pen svg{transform:translateY(-1px)}
 </style>
 </head>
 <body>
@@ -3781,7 +3781,7 @@ button.mn-age:disabled{opacity:1}
     bat: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="17" height="10" rx="2.2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="20.5" y="10" width="2" height="4" rx="1" fill="currentColor"/><rect x="5" y="9.5" width="8" height="5" rx="1" fill="currentColor"/></svg>',
     star: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
     starOn: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z" fill="currentColor" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
-    pen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>'
+    pen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path transform="translate(.5 -.5)" d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>'
   };
   // Hardware names from Meshtastic's HardwareModel list (mesh.proto), e.g. HELTEC_V4 -> "Heltec V4".
   const HW = {1:"TLORA_V2",2:"TLORA_V1",3:"TLORA_V2_1_1P6",5:"HELTEC_V2_0",6:"TBEAM_V0P7",8:"TLORA_V1_1P3",9:"RAK4631",10:"HELTEC_V2_1",11:"HELTEC_V1",13:"RAK11200",14:"NANO_G1",15:"TLORA_V2_1_1P8",16:"TLORA_T3_S3",17:"NANO_G1_EXPLORER",18:"NANO_G2_ULTRA",19:"LORA_TYPE",20:"WIPHONE",22:"RAK2560",23:"HELTEC_HRU_3601",24:"HELTEC_WIRELESS_BRIDGE",25:"STATION_G1",26:"RAK11310",27:"MAKERFABS_TRACKER",28:"MAKERFABS_RESERVED",30:"RP2040_LORA",31:"STATION_G2",32:"LORA_RELAY_V1",34:"PPR",35:"GENIEBLOCKS",36:"NRF52_UNKNOWN",37:"PORTDUINO",38:"ANDROID_SIM",39:"DIY_V1",40:"NRF52840_PCA10059",41:"DR_DEV",42:"M5STACK",43:"HELTEC_V3",44:"HELTEC_WSL_V3",45:"BETAFPV_2400_TX",46:"BETAFPV_900_NANO_TX",47:"RPI_PICO",49:"HELTEC_WIRELESS_PAPER",50:"T_DECK",51:"T_WATCH_S3",52:"PICOMPUTER_S3",53:"HELTEC_HT62",54:"EBYTE_ESP32_S3",55:"ESP32_S3_PICO",56:"CHATTER_2",57:"HELTEC_WIRELESS_PAPER_V1_0",58:"HELTEC_WIRELESS_TRACKER_V1_0",59:"UNPHONE",60:"TD_LORAC",61:"CDEBYTE_EORA_S3",62:"TWC_MESH_V4",63:"NRF52_PROMICRO_DIY",64:"RADIOMASTER_900_BANDIT_NANO",65:"HELTEC_CAPSULE_SENSOR_V3",66:"HELTEC_VISION_MASTER_T190",67:"HELTEC_VISION_MASTER_E213",68:"HELTEC_VISION_MASTER_E290",69:"HELTEC_MESH_NODE_T114",70:"SENSECAP_INDICATOR",72:"RAK3172",73:"WIO_E5",74:"RADIOMASTER_900_BANDIT",75:"ME25LS01_4Y10TD",76:"RP2040_FEATHER_RFM95",77:"M5STACK_COREBASIC",78:"M5STACK_CORE2",79:"RPI_PICO2",80:"M5STACK_CORES3",81:"SEEED_XIAO_S3",82:"MS24SF1",83:"TLORA_C6",84:"WISMESH_TAP",85:"ROUTASTIC",86:"MESH_TAB",87:"MESHLINK",88:"XIAO_NRF52_KIT",90:"THINKNODE_M2",91:"T_ETH_ELITE",92:"HELTEC_SENSOR_HUB",93:"MUZI_BASE",94:"HELTEC_MESH_POCKET",95:"SEEED_SOLAR_NODE",96:"NOMADSTAR_METEOR_PRO",97:"CROWPANEL",98:"LINK_32",101:"MUZI_R1_NEO",104:"M5STACK_RESERVED",106:"RAK3312",107:"THINKNODE_M5",108:"HELTEC_MESH_SOLAR",109:"T_ECHO_LITE",110:"HELTEC_V4",111:"M5STACK_C6L",112:"M5STACK_CARDPUTER_ADV",114:"T_WATCH_ULTRA",115:"THINKNODE_M3",116:"WISMESH_TAP_V2",117:"RAK3401",118:"RAK6421",119:"THINKNODE_M4",120:"THINKNODE_M6",121:"MESHSTICK_1262",123:"T5_S3_EPAPER_PRO",125:"MINI_EPAPER_S3",126:"TDISPLAY_S3_PRO",127:"HELTEC_MESH_NODE_T096",129:"THINKNODE_M7",130:"THINKNODE_M8",131:"THINKNODE_M9",132:"HELTEC_V4_R8",133:"HELTEC_MESH_NODE_T1",134:"STATION_G3",135:"T_IMPULSE_PLUS",136:"T_ECHO_CARD",137:"SEEED_WIO_TRACKER_L2",138:"CROWPANEL_P4",139:"HELTEC_MESH_TOWER_V2",140:"MESHNOLOGY_W10",141:"HELTEC_RC32",142:"HELTEC_RC52",143:"HELTEC_RCC6",144:"SEEED_WIO_TRACKER_L1_PRO_1W",145:"MESHNOLOGY_W12",146:"MESHPAGER_X2",147:"T_CONNECT_PRO",148:"AXIOMETA_GENESIS_MINI",149:"MAKERFABS_NOMAD_TERMINAL",150:"THINKNODE_MX",151:"NODARA",152:"HELTEC_MESH_POCKET_V2",255:"PRIVATE_HW"};
