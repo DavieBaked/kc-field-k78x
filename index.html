@@ -3886,7 +3886,7 @@ button.mn-age:disabled{opacity:1}
       "±" + Math.round(geo.acc) + " m" + (geo.sentAt ? " · sent to radio " + ago(geo.sentAt) : "");
     const share = radio.state === "live" && !meshDemo && "geolocation" in navigator ? '<button class="ms-wake ms-share" type="button" role="switch" aria-checked="' + shareLoc + '" id="b-mesh-loc" data-act="mesh-loc">' +
       '<span class="ms-sw-t"><span>Share phone location</span><small class="' + (geo.err && shareLoc ? "err" : "") + '">' + esc(gsub) + '</small></span><span class="sw" aria-hidden="true"></span></button>' : "";
-    if(hasSerial() && !meshDemo) acts += '<button class="link" type="button" id="b-mesh-usb" data-act="mesh-usb">USB setup</button>';
+    if(!inClaude && !meshDemo) acts += '<button class="link" type="button" id="b-mesh-usb" data-act="mesh-usb">USB setup</button>';
     return '<div class="card ms' + (radio.state === "lost" && !meshDemo ? " lost" : "") + '"><div class="ms-head">' + head + '</div>' + body + batRow +
       '<div class="ms-acts">' + acts + '</div>' + share + wake + '</div>';
   }
@@ -4186,6 +4186,12 @@ button.mn-age:disabled{opacity:1}
     navigator.serial.addEventListener("disconnect", e => { if(usb.port && e.target === usb.port && usb.state !== "saved") usbFail("The radio was unplugged."); });
   }
   function openUsb(){
+    if(!hasSerial()){
+      const v = (navigator.userAgent.match(/Chrome\/(\d+)/) || [])[1];
+      toast(isIOS ? "iPhones can’t use USB radios. Use an Android phone with Chrome."
+        : "This browser can’t use USB" + (v ? " (Chrome " + v + ")" : "") + ". Update Chrome from the Play Store, then reopen the app.");
+      return;
+    }
     let pop = $("#usb-pop");
     if(!pop){
       pop = document.createElement("div"); pop.id = "usb-pop"; pop.className = "mx-pop"; document.body.appendChild(pop);
