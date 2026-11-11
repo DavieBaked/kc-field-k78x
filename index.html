@@ -544,19 +544,20 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
 body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))}
 /* detail rows: label | value with its age underneath | Ask */
 .mn-det .mn-kv{align-items:center}
-.mn-val{display:grid;justify-items:end;gap:1px;margin-left:auto;min-width:0}
+.mn-val{display:grid;justify-items:end;gap:1px;margin-left:auto;min-width:0;text-align:right}
 .mn-val small{font-weight:500;color:var(--muted);font-size:calc(12px * var(--fs))}
 .mn-val small.stale{color:var(--map-todo)}
 .mn-val small.old{color:var(--danger)}
-.mn-ask{flex:none;display:grid;place-items:center;width:38px;height:38px;padding:0;border-radius:50%;border:1px solid var(--line-strong);background:none;color:var(--accent)}
-.mn-ask svg{width:18px;height:18px}
+.mn-acts .mn-ask{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.mn-ask svg{width:16px;height:16px;flex:none}
 .mn-ask[data-wait] svg{animation:mnSpin 1.2s linear infinite}
 @keyframes mnSpin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion: reduce){.mn-ask[data-wait] svg{animation:none}}
-.mn-ask:disabled{opacity:.4;border-color:var(--line-strong);color:var(--muted)}
+.mn-ask:disabled{opacity:.45}
 .mn-star{color:var(--accent);margin-right:5px}
-.mn-rename{display:flex;gap:8px;align-items:center}
-.mn-rename input{flex:1;min-width:0;min-height:40px;padding:0 12px;border:1px solid var(--line-strong);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;font-size:max(16px,calc(15px * var(--fs)))}
+.mn-rename{display:grid;gap:8px;min-width:0}
+.mn-rename-b{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mn-rename input{width:100%;box-sizing:border-box;min-width:0;min-height:40px;padding:0 12px;border:1px solid var(--line-strong);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;font-size:max(16px,calc(15px * var(--fs)))}
 .mn-rename input:focus{outline:none;border-color:var(--accent)}
 .mn-rename .btn{min-height:40px}
 .mn-coords{padding:4px 0;border:0;background:none;color:var(--ink);font:inherit;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:500;text-decoration:underline dotted var(--line-strong);text-underline-offset:4px;cursor:copy}
@@ -3736,8 +3737,13 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
     const age = asked ? "asked " + ago(n.asked[kind]) + ", waiting…" : t ? ago(t) : "";
     const fresh = !asked && t && Date.now() - t < 15000;
     const can = meshDemo || radio.state === "live";
-    return '<div class="mn-kv"><span>' + label + '</span><b class="mn-val">' + value + (age ? '<small class="' + (asked ? "" : fresh ? "fresh" : ageClass(t)) + '">' + (fresh ? "updated " : "") + age + '</small>' : "") + '</b>' +
-      (isMe ? "" : '<button class="mn-ask" type="button" id="b-ask-' + kind + '-' + n.num + '" data-act="mesh-ask" data-kind="' + kind + '" data-num="' + n.num + '"' + (can && !asked ? "" : " disabled") + ' aria-label="Ask for a fresh ' + (kind === "pos" ? "position" : "battery reading") + '"' + (asked ? ' data-wait="1"' : "") + '>' + REFRESH + '</button>') + '</div>';
+    return '<div class="mn-kv"><span>' + label + '</span><b class="mn-val">' + value + (age ? '<small class="' + (asked ? "" : fresh ? "fresh" : ageClass(t)) + '">' + (fresh ? "updated " : "") + age + '</small>' : "") + '</b></div>';
+  }
+  // Refresh buttons sit with the other actions, below the values.
+  function askBtn(n, kind){
+    const asked = askedRecently(n, kind), can = meshDemo || radio.state === "live";
+    return '<button class="btn mn-ask" type="button" id="b-ask-' + kind + '-' + n.num + '" data-act="mesh-ask" data-kind="' + kind + '" data-num="' + n.num + '"' + (can && !asked ? "" : " disabled") +
+      (asked ? ' data-wait="1"' : "") + '>' + REFRESH + '<span>' + (kind === "pos" ? "Position" : "Battery") + '</span></button>';
   }
   // The opened part of a node: position (tap to copy), battery, rename, star.
   function detailHTML(n, isMe){
@@ -3748,13 +3754,14 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
       return '<div class="mn-det">' +
         (renaming
           ? '<form class="mn-rename" data-num="' + n.num + '"><input id="nick-' + n.num + '" type="text" maxlength="30" autocomplete="off" placeholder="' + esc(radioName(n)) + '" value="' + esc(nickOf(n)) + '" aria-label="Nickname">' +
-            '<button class="btn primary" type="submit">Save</button><button class="btn" type="button" data-act="mesh-rename-cancel">Cancel</button></form>' +
+            '<div class="mn-rename-b"><button class="btn" type="button" data-act="mesh-rename-cancel">Cancel</button><button class="btn primary" type="submit">Save</button></div></form>' +
             '<p class="mn-asked">Only on this phone. The radio keeps its name' + (n.long ? ' “' + esc(n.long) + '”' : "") + '. Leave empty to use it again.</p>'
           : "") +
         (nickOf(n) && !renaming ? '<div class="mn-kv"><span>Radio name</span><b>' + esc(radioName(n)) + '</b></div>' : "") +
         kvRow(n, isMe, "pos", "Position", hasPos ? '<button class="mn-coords mono" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '" aria-label="Copy coordinates">' + coords + '</button>' : "none yet", hasPos ? n.posT : null) +
         (isMe ? "" : kvRow(n, isMe, "bat", "Battery", n.bat == null ? (isMe ? "unknown" : "not shared yet") : b.t + (n.volt ? " · " + n.volt.toFixed(2) + " V" : ""), n.bat == null ? null : n.batT)) +
         (n.hops != null && !isMe ? '<div class="mn-kv"><span>Hops</span><b>' + (n.hops === 0 ? "direct" : n.hops) + (n.snr != null && n.hops === 0 ? " · SNR " + n.snr.toFixed(1) : "") + '</b></div>' : "") +
+        (isMe ? "" : '<div class="mn-acts">' + askBtn(n, "pos") + askBtn(n, "bat") + '</div>') +
         '<div class="mn-acts">' +
           (isMe ? "" : '<button class="btn" type="button" id="b-star-' + n.num + '" data-act="mesh-star" data-num="' + n.num + '" aria-pressed="' + starred(n) + '">' + (starred(n) ? "★ Starred" : "☆ Star") + '</button>') +
           (renaming ? "" : '<button class="btn" type="button" id="b-nick-' + n.num + '" data-act="mesh-rename" data-num="' + n.num + '">Rename</button>') +
