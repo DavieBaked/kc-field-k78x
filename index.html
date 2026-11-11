@@ -256,6 +256,14 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 .m-block{fill:color-mix(in srgb,var(--map-todo) 22%,transparent);stroke:var(--map-todo);stroke-width:2;vector-effect:non-scaling-stroke;cursor:pointer}
 .m-block.on{fill:color-mix(in srgb,var(--accent) 55%,transparent);stroke:var(--accent);stroke-width:2.5}
 .m-block.other{fill:color-mix(in srgb,var(--muted) 8%,transparent);stroke:var(--muted);stroke-width:1;stroke-dasharray:4 3;cursor:default}
+/* team colours from the KML: to fly = outlined in the team colour, flown = filled with it */
+.m-block.tc{fill:color-mix(in srgb,var(--bc) 10%,transparent);stroke:var(--bc);stroke-width:2}
+.m-block.tc.on{fill:color-mix(in srgb,var(--bc) 72%,transparent);stroke:var(--bc);stroke-width:3}
+.m-block.other.tc{fill:color-mix(in srgb,var(--bc) 5%,transparent);stroke:color-mix(in srgb,var(--bc) 55%,transparent);stroke-width:1}
+.map-wrap.kc{--map-bg:#101418;--ink:#f2f4f7;--muted:#9aa3ad;--surface:#1b2027;--line:#2c333d;--line-strong:#3d4652;--accent:#ffffff;--accent-ink:#101418;--map-todo:#9aa3ad;color:var(--ink)}
+.map-wrap.kc .m-sec{opacity:.8}
+.map-wrap.teamcol .k-todo{background:transparent;border-color:var(--ink)}
+.map-wrap.teamcol .k-done{background:var(--ink);border-color:var(--ink)}
 .m-labels text{text-anchor:middle;dominant-baseline:central;pointer-events:none;paint-order:stroke;stroke:var(--map-bg);stroke-width:.3em;stroke-linejoin:round}
 .m-lbl{fill:var(--ink);font-weight:700}
 .m-lbl.other{fill:var(--muted);font-weight:500;font-size:.85em}
@@ -2107,6 +2115,25 @@ button.mn-age:disabled{opacity:1}
     const name = kidText(root, "name") || "KML";
     const groups = [], byFolder = new Map(), days = {};
     const lineEls = [], secEls = [];
+    // each block's colour comes from the KML's own styles, so it follows whatever the planners chose that day
+    const kmlHex = s => { s = (s || "").trim(); return /^[0-9a-f]{8}$/i.test(s) ? "#" + s.slice(6, 8) + s.slice(4, 6) + s.slice(2, 4) : null; };
+    const styleCol = el => {
+      if(!el) return null;
+      for(const t of ["PolyStyle", "LineStyle", "IconStyle"]){ const s = el.getElementsByTagNameNS("*", t)[0]; const c = s && kmlHex(kidText(s, "color")); if(c) return c; }
+      return null;
+    };
+    const styles = new Map(), styleMaps = new Map();
+    for(const s of doc.getElementsByTagNameNS("*", "Style")) if(s.getAttribute("id")) styles.set(s.getAttribute("id"), styleCol(s));
+    for(const sm of doc.getElementsByTagNameNS("*", "StyleMap")){
+      if(!sm.getAttribute("id")) continue;
+      for(const pr of kids(sm, "Pair")) if(kidText(pr, "key") === "normal") styleMaps.set(sm.getAttribute("id"), kidText(pr, "styleUrl").replace(/^.*#/, ""));
+    }
+    const colourOf = pm => {
+      const own = kids(pm, "Style")[0]; const c = styleCol(own); if(c) return c;
+      let id = kidText(pm, "styleUrl").replace(/^.*#/, "");
+      if(styleMaps.has(id)) id = styleMaps.get(id);
+      return styles.get(id) || null;
+    };
     let n = 0;
     for(const pm of doc.getElementsByTagNameNS("*", "Placemark")){
       if(!kids(pm, "Polygon").length){
@@ -2126,7 +2153,7 @@ button.mn-age:disabled{opacity:1}
           const pt = kids(p, "Point")[0];
           if(!pt) continue;
           const x = extData(p), c = readCoords(pt)[0];
-          if(c && !launch) launch = {name: kidText(p, "name"), at: [r5(c[0]), r5(c[1])]};
+          if(c && !launch){ launch = {name: kidText(p, "name"), at: [r5(c[0]), r5(c[1])]}; const lc = colourOf(p); if(lc) launch.k = lc; }
           if(!sub){
             if(x.section) sub = x.section;
             else { const m = kidText(p, "description").match(/([^·]+)\s+section\b/i); if(m) sub = m[1].trim(); }
@@ -2141,7 +2168,8 @@ button.mn-age:disabled{opacity:1}
       if(x.day) days[x.day] = (days[x.day] || 0) + 1;
       const outer = kids(pm, "Polygon")[0].getElementsByTagNameNS("*", "outerBoundaryIs")[0] || kids(pm, "Polygon")[0];
       const ring = simplify(readCoords(outer), 0.00002).map(p => [r5(p[0]), r5(p[1])]);
-      g.blocks.push({id: "b" + (n++), name: kidText(pm, "name") || "Block " + n, ha: ha || 0, ring});
+      const bc = colourOf(pm);
+      g.blocks.push(Object.assign({id: "b" + (n++), name: kidText(pm, "name") || "Block " + n, ha: ha || 0, ring}, bc ? {c: bc} : {}));
     }
     if(!n) return {name, groups: [], day: null};
 
@@ -2165,7 +2193,7 @@ button.mn-age:disabled{opacity:1}
           if(!pts.some(inBox)) continue;
           rings.push(simplify(pts, 0.0003).map(p => [r5(p[0]), r5(p[1])]));
         }
-        if(rings.length) sections.push({name: kidText(pm, "name"), rings});
+        if(rings.length){ const sc = colourOf(pm); sections.push(Object.assign({name: kidText(pm, "name"), rings}, sc ? {k: sc} : {})); }
         continue;
       }
       let cls = "track";
@@ -2173,10 +2201,11 @@ button.mn-age:disabled{opacity:1}
         if(/\btar\b/.test(fn)){ cls = "tar"; break; }
         if(/gravel/.test(fn)){ cls = "gravel"; break; }
       }
+      const rk = colourOf(pm);
       for(const ls of pm.getElementsByTagNameNS("*", "LineString")){
         const pts = readCoords(ls);
         let run = [];
-        const flush = () => { if(run.length > 1) roads.push({c: cls, p: simplify(run, 0.00008).map(p => [r5(p[0]), r5(p[1])])}); run = []; };
+        const flush = () => { if(run.length > 1) roads.push(Object.assign({c: cls, p: simplify(run, 0.00008).map(p => [r5(p[0]), r5(p[1])])}, rk ? {k: rk} : {})); run = []; };
         for(let i = 0; i < pts.length; i++){
           const near = inBox(pts[i]) || (i > 0 && inBox(pts[i - 1])) || (i < pts.length - 1 && inBox(pts[i + 1]));
           if(near) run.push(pts[i]); else flush();
@@ -2277,6 +2306,8 @@ button.mn-age:disabled{opacity:1}
     return p => [(p[0] - lon0) * k * 1000, -(p[1] - lat0) * 1000];
   }
   function ptsAttr(ring, P){ return ring.map(p => { const q = P(p); return q[0].toFixed(2) + "," + q[1].toFixed(2); }).join(" "); }
+  // A KML that carries its own colours draws the same in every theme.
+  const kmlColoured = day => !!(day && day.kml && day.kml.groups.some(g => g.blocks.some(b => b.c)));
   function initMap(day, mode){
     mode = mode || "blocks";
     const svg = $("#map");
@@ -2291,10 +2322,10 @@ button.mn-age:disabled{opacity:1}
     const grow = q => { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); };
     let secs = "", roads = "", blocks = "", labels = "", launches = "";
     for(const s of (K.sections || [])){
-      for(const r of s.rings) secs += '<polyline class="m-sec" points="' + ptsAttr(r, P) + '"/>';
+      for(const r of s.rings) secs += '<polyline class="m-sec"' + (s.k ? ' style="stroke:' + s.k + '"' : "") + ' points="' + ptsAttr(r, P) + '"/>';
     }
     const order = {track: 0, gravel: 1, tar: 2};
-    for(const r of (K.roads || []).slice().sort((a, b) => order[a.c] - order[b.c])) roads += '<polyline class="m-road r-' + r.c + '" points="' + ptsAttr(r.p, P) + '"/>';
+    for(const r of (K.roads || []).slice().sort((a, b) => order[a.c] - order[b.c])) roads += '<polyline class="m-road r-' + r.c + '"' + (r.k ? ' style="stroke:' + r.k + '"' : "") + ' points="' + ptsAttr(r.p, P) + '"/>';
     let others = "", otherLabels = "";
     for(const g of K.groups){
       const own = mine(day, g);
@@ -2307,17 +2338,17 @@ button.mn-age:disabled{opacity:1}
         const bw = Math.max.apply(null, q.map(v => v[0])) - Math.min.apply(null, q.map(v => v[0]));
         const fitAttr = ' data-bw="' + bw.toFixed(2) + '" data-len="' + short.length + '"';
         if(own){
-          blocks += '<polygon class="m-block' + (set.has(b.id) ? " on" : "") + '" data-block="' + b.id + '" points="' + pts + '"><title>' + esc(b.name) + '</title></polygon>';
+          blocks += '<polygon class="m-block' + (set.has(b.id) ? " on" : "") + (b.c ? ' tc" style="--bc:' + b.c : "") + '" data-block="' + b.id + '" points="' + pts + '"><title>' + esc(b.name) + '</title></polygon>';
           labels += '<text class="m-lbl"' + fitAttr + ' x="' + cx.toFixed(2) + '" y="' + cy.toFixed(2) + '">' + short + '</text>';
         } else {
-          others += '<polygon class="m-block other" points="' + pts + '"/>';
+          others += '<polygon class="m-block other' + (b.c ? ' tc" style="--bc:' + b.c : "") + '" points="' + pts + '"/>';
           otherLabels += '<text class="m-lbl other"' + fitAttr + ' x="' + cx.toFixed(2) + '" y="' + cy.toFixed(2) + '">' + short + '</text>';
         }
       }
       if(g.launch && own){
         const q = P(g.launch.at); grow(q);
         const ln = g.launch.name.replace(/\s+(launch|car)$/i, "");
-        launches += '<text class="m-launch" x="' + q[0].toFixed(2) + '" y="' + q[1].toFixed(2) + '">▲</text>' +
+        launches += '<text class="m-launch"' + (g.launch.k ? ' style="fill:' + g.launch.k + '"' : "") + ' x="' + q[0].toFixed(2) + '" y="' + q[1].toFixed(2) + '">▲</text>' +
           '<text class="m-llbl" x="' + q[0].toFixed(2) + '" y="' + q[1].toFixed(2) + '" dy="1.5em">' + esc(pre && ln.startsWith(pre) ? ln.slice(pre.length) : ln) + '</text>';
       }
     }
@@ -2328,6 +2359,8 @@ button.mn-age:disabled{opacity:1}
     }
     const pad = Math.max(x1 - x0, y1 - y0) * 0.08 + 0.5;
     const fit = {x: x0 - pad, y: y0 - pad, w: (x1 - x0) + pad * 2, h: (y1 - y0) + pad * 2};
+    const wrapEl = svg.closest(".map-wrap"), kc = kmlColoured(day);
+    if(wrapEl){ wrapEl.classList.toggle("kc", kc); wrapEl.classList.toggle("teamcol", kc); }
     svg.innerHTML = '<rect class="m-bg" x="-100000" y="-100000" width="200000" height="200000"/>' +
       '<g>' + secs + '</g><g>' + roads + '</g><g>' + others + '</g><g id="m-blocks">' + blocks + '</g>' +
       '<g id="m-labels" class="m-labels">' + otherLabels + labels + launches + '</g>' +
@@ -2590,7 +2623,9 @@ button.mn-age:disabled{opacity:1}
     const cs = getComputedStyle(document.documentElement), tk = n => cs.getPropertyValue("--" + n).trim() || "#888888";
     const al = (hex, a) => { const m = hex.replace("#", ""); const f = m.length === 3 ? m.split("").map(c => c + c).join("") : m;
       return "rgba(" + parseInt(f.slice(0, 2), 16) + "," + parseInt(f.slice(2, 4), 16) + "," + parseInt(f.slice(4, 6), 16) + "," + a + ")"; };
-    const dk = isDark(), ink = tk("ink"), mut = tk("muted"), acc = tk("accent"), todo = tk("map-todo"), mbg = tk("map-bg"), surf = tk("surface");
+    const kc = kmlColoured(day);       // KML colours: a fixed dark picture, whatever the theme
+    const dk = kc || isDark(), ink = kc ? "#f2f4f7" : tk("ink"), mut = kc ? "#9aa3ad" : tk("muted"), acc = kc ? "#ffffff" : tk("accent"),
+      todo = kc ? "#9aa3ad" : tk("map-todo"), mbg = kc ? "#101418" : tk("map-bg"), surf = kc ? "#1b2027" : tk("surface");
     const C = {bg: mbg, sec: al(mut, .6), track: tk("road-track"), gravel: tk("road-gravel"), tar: tk("road-tar"), oFill: al(mut, .1), oLine: al(mut, .5),
       onFill: al(acc, .5), on: acc, todoFill: al(todo, .16), todo: todo, halo: al(mbg, .92), onText: dk ? "#FFFFFF" : ink, text: ink,
       mark: ink, markLine: mbg, sub: mut, head: dk ? surf : ink, headText: dk ? ink : "#FFFFFF", headSub: dk ? mut : "rgba(255,255,255,.72)",
@@ -2599,14 +2634,14 @@ button.mn-age:disabled{opacity:1}
     const path = (pts, close) => { x.beginPath(); pts.forEach((p, i) => { const q = T(p); i ? x.lineTo(q[0], q[1]) : x.moveTo(q[0], q[1]); }); if(close) x.closePath(); };
     x.lineJoin = "round"; x.lineCap = "round";
     x.setLineDash([12, 9]); x.strokeStyle = C.sec; x.lineWidth = 2;
-    for(const s of (day.kml.sections || [])) for(const r of s.rings){ path(r, false); x.stroke(); }
+    for(const s of (day.kml.sections || [])){ x.strokeStyle = s.k ? al(s.k, .7) : C.sec; for(const r of s.rings){ path(r, false); x.stroke(); } }
     x.setLineDash([]);
     const rs = {track: [C.track, 1.6], gravel: [C.gravel, 2.6], tar: [C.tar, 4]};
-    for(const cls of ["track", "gravel", "tar"]) for(const r of (day.kml.roads || [])) if(r.c === cls){ x.strokeStyle = rs[cls][0]; x.lineWidth = rs[cls][1]; path(r.p, false); x.stroke(); }
+    for(const cls of ["track", "gravel", "tar"]) for(const r of (day.kml.roads || [])) if(r.c === cls){ x.strokeStyle = r.k || rs[cls][0]; x.lineWidth = rs[cls][1]; path(r.p, false); x.stroke(); }
     // other teams, faint
     x.setLineDash([8, 6]);
     for(const g of day.kml.groups) if(!mine(day, g)) for(const b of g.blocks) if(b.ring && b.ring.length > 2){
-      path(b.ring, true); x.fillStyle = C.oFill; x.fill(); x.strokeStyle = C.oLine; x.lineWidth = 1.5; x.stroke();
+      path(b.ring, true); x.fillStyle = b.c ? al(b.c, .06) : C.oFill; x.fill(); x.strokeStyle = b.c ? al(b.c, .55) : C.oLine; x.lineWidth = 1.5; x.stroke();
     }
     x.setLineDash([]);
     const all = []; for(const g of day.kml.groups) for(const b of g.blocks) all.push(b.name);
@@ -2617,8 +2652,8 @@ button.mn-age:disabled{opacity:1}
         if(!b.ring || b.ring.length < 3) continue;
         const on = set.has(b.id);
         path(b.ring, true);
-        x.fillStyle = on ? C.onFill : C.todoFill; x.fill();
-        x.strokeStyle = on ? C.on : C.todo; x.lineWidth = on ? 4 : 3; x.stroke();
+        x.fillStyle = b.c ? al(b.c, on ? .72 : .1) : on ? C.onFill : C.todoFill; x.fill();
+        x.strokeStyle = b.c || (on ? C.on : C.todo); x.lineWidth = on ? 4 : 3; x.stroke();
         const q = b.ring.map(T);
         const bw = Math.max.apply(null, q.map(v => v[0])) - Math.min.apply(null, q.map(v => v[0]));
         labels.push([q.reduce((s, v) => s + v[0], 0) / q.length, q.reduce((s, v) => s + v[1], 0) / q.length, pre && b.name.startsWith(pre) ? b.name.slice(pre.length) : b.name, on, bw]);
@@ -2640,7 +2675,7 @@ button.mn-age:disabled{opacity:1}
     for(const g of own) if(g.launch){
       const q = T(g.launch.at);
       x.beginPath(); x.moveTo(q[0], q[1] - 15); x.lineTo(q[0] + 13, q[1] + 9); x.lineTo(q[0] - 13, q[1] + 9); x.closePath();
-      x.fillStyle = C.mark; x.fill(); x.lineWidth = 3; x.strokeStyle = C.markLine; x.stroke();
+      x.fillStyle = g.launch.k || C.mark; x.fill(); x.lineWidth = 3; x.strokeStyle = C.markLine; x.stroke();
       const ln = g.launch.name.replace(/\s+(launch|car)$/i, ""), lt = pre && ln.startsWith(pre) ? ln.slice(pre.length) : ln;
       x.textAlign = "center"; x.textBaseline = "top"; x.font = "600 24px " + F;
       x.lineWidth = 6; x.strokeStyle = C.halo; x.strokeText(lt, q[0], q[1] + 14);
@@ -2667,7 +2702,9 @@ button.mn-age:disabled{opacity:1}
     keys[0][0] = C.on; keys[1][0] = C.todo;
     let kx = W - PAD - keys.reduce((s, k) => s + 22 + 10 + x.measureText(k[1]).width + 28, -28);
     for(const [col, t] of keys){
-      x.fillStyle = col; x.fillRect(kx, H - 44, 22, 22); kx += 32;
+      if(kc && t === "To fly"){ x.strokeStyle = ink; x.lineWidth = 2.5; x.strokeRect(kx + 1.25, H - 42.75, 19.5, 19.5); }
+      else { x.fillStyle = col; x.fillRect(kx, H - 44, 22, 22); }
+      kx += 32;
       x.fillStyle = C.footText; x.fillText(t, kx, H - 25); kx += x.measureText(t).width + 28;
     }
     return c;
