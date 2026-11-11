@@ -588,6 +588,24 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
 .mn-det{padding-top:2px}
 .ms-me{cursor:pointer}
 .ms-bat-l{display:flex;align-items:center;gap:4px}
+/* detail lines: symbol | value | age (tap to refresh) */
+.mn-line{display:grid;grid-template-columns:24px 1fr auto;align-items:center;gap:10px;min-height:36px}
+.mn-line .mn-sym{color:var(--muted)}
+.mn-v{min-width:0;font-weight:600;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mn-v .mn-coords{font-weight:500}
+.mn-none{color:var(--muted);font-weight:500}
+.mn-volt{color:var(--muted);font-weight:500}
+.mn-age{display:inline-flex;align-items:center;gap:6px;justify-self:end;padding:6px 0 6px 8px;border:0;background:none;color:var(--muted);font:inherit;font-size:calc(13px * var(--fs));white-space:nowrap}
+button.mn-age svg{width:14px;height:14px;opacity:.8}
+button.mn-age:disabled{opacity:1}
+.mn-age.stale{color:var(--map-todo)}
+.mn-age.old{color:var(--danger)}
+.mn-age.fresh{color:#3fb950;font-weight:700}
+.mn-age[data-wait] svg{animation:mnSpin 1.2s linear infinite}
+.mn-type{cursor:default}
+.mn-det{gap:2px}
+.mn-v .mn-coords{font-size:calc(13.5px * var(--fs));letter-spacing:-.02em}
+.mn-age{font-size:calc(12px * var(--fs))}
 </style>
 </head>
 <body>
@@ -3285,7 +3303,7 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
     if(num == null) return;
     const now = fromDb ? null : Date.now();
     const n = nodeOf(store, num);
-    if(info.user){ if(info.user.long) n.long = info.user.long; if(info.user.short) n.short = info.user.short; if(info.user.id) n.id = info.user.id; }
+    if(info.user){ if(info.user.long) n.long = info.user.long; if(info.user.short) n.short = info.user.short; if(info.user.id) n.id = info.user.id; if(info.user.hw) n.hw = info.user.hw; }
     if(info.metrics && info.metrics.bat != null && (!n.batT || !t || t >= n.batT)){ n.bat = info.metrics.bat; n.volt = info.metrics.volt; n.batT = t || n.batT || now; }
     if(info.pos){
       const pt = info.pos.t || t || now;
@@ -3758,18 +3776,24 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
     starOn: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z" fill="currentColor" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
     pen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>'
   };
-  // One detail line: symbol (and refresh button for other nodes) on the left, the value and its age on the right.
+  // Hardware names from Meshtastic's HardwareModel list (mesh.proto), e.g. HELTEC_V4 -> "Heltec V4".
+  const HW = {1:"TLORA_V2",2:"TLORA_V1",3:"TLORA_V2_1_1P6",5:"HELTEC_V2_0",6:"TBEAM_V0P7",8:"TLORA_V1_1P3",9:"RAK4631",10:"HELTEC_V2_1",11:"HELTEC_V1",13:"RAK11200",14:"NANO_G1",15:"TLORA_V2_1_1P8",16:"TLORA_T3_S3",17:"NANO_G1_EXPLORER",18:"NANO_G2_ULTRA",19:"LORA_TYPE",20:"WIPHONE",22:"RAK2560",23:"HELTEC_HRU_3601",24:"HELTEC_WIRELESS_BRIDGE",25:"STATION_G1",26:"RAK11310",27:"MAKERFABS_TRACKER",28:"MAKERFABS_RESERVED",30:"RP2040_LORA",31:"STATION_G2",32:"LORA_RELAY_V1",34:"PPR",35:"GENIEBLOCKS",36:"NRF52_UNKNOWN",37:"PORTDUINO",38:"ANDROID_SIM",39:"DIY_V1",40:"NRF52840_PCA10059",41:"DR_DEV",42:"M5STACK",43:"HELTEC_V3",44:"HELTEC_WSL_V3",45:"BETAFPV_2400_TX",46:"BETAFPV_900_NANO_TX",47:"RPI_PICO",49:"HELTEC_WIRELESS_PAPER",50:"T_DECK",51:"T_WATCH_S3",52:"PICOMPUTER_S3",53:"HELTEC_HT62",54:"EBYTE_ESP32_S3",55:"ESP32_S3_PICO",56:"CHATTER_2",57:"HELTEC_WIRELESS_PAPER_V1_0",58:"HELTEC_WIRELESS_TRACKER_V1_0",59:"UNPHONE",60:"TD_LORAC",61:"CDEBYTE_EORA_S3",62:"TWC_MESH_V4",63:"NRF52_PROMICRO_DIY",64:"RADIOMASTER_900_BANDIT_NANO",65:"HELTEC_CAPSULE_SENSOR_V3",66:"HELTEC_VISION_MASTER_T190",67:"HELTEC_VISION_MASTER_E213",68:"HELTEC_VISION_MASTER_E290",69:"HELTEC_MESH_NODE_T114",70:"SENSECAP_INDICATOR",72:"RAK3172",73:"WIO_E5",74:"RADIOMASTER_900_BANDIT",75:"ME25LS01_4Y10TD",76:"RP2040_FEATHER_RFM95",77:"M5STACK_COREBASIC",78:"M5STACK_CORE2",79:"RPI_PICO2",80:"M5STACK_CORES3",81:"SEEED_XIAO_S3",82:"MS24SF1",83:"TLORA_C6",84:"WISMESH_TAP",85:"ROUTASTIC",86:"MESH_TAB",87:"MESHLINK",88:"XIAO_NRF52_KIT",90:"THINKNODE_M2",91:"T_ETH_ELITE",92:"HELTEC_SENSOR_HUB",93:"MUZI_BASE",94:"HELTEC_MESH_POCKET",95:"SEEED_SOLAR_NODE",96:"NOMADSTAR_METEOR_PRO",97:"CROWPANEL",98:"LINK_32",101:"MUZI_R1_NEO",104:"M5STACK_RESERVED",106:"RAK3312",107:"THINKNODE_M5",108:"HELTEC_MESH_SOLAR",109:"T_ECHO_LITE",110:"HELTEC_V4",111:"M5STACK_C6L",112:"M5STACK_CARDPUTER_ADV",114:"T_WATCH_ULTRA",115:"THINKNODE_M3",116:"WISMESH_TAP_V2",117:"RAK3401",118:"RAK6421",119:"THINKNODE_M4",120:"THINKNODE_M6",121:"MESHSTICK_1262",123:"T5_S3_EPAPER_PRO",125:"MINI_EPAPER_S3",126:"TDISPLAY_S3_PRO",127:"HELTEC_MESH_NODE_T096",129:"THINKNODE_M7",130:"THINKNODE_M8",131:"THINKNODE_M9",132:"HELTEC_V4_R8",133:"HELTEC_MESH_NODE_T1",134:"STATION_G3",135:"T_IMPULSE_PLUS",136:"T_ECHO_CARD",137:"SEEED_WIO_TRACKER_L2",138:"CROWPANEL_P4",139:"HELTEC_MESH_TOWER_V2",140:"MESHNOLOGY_W10",141:"HELTEC_RC32",142:"HELTEC_RC52",143:"HELTEC_RCC6",144:"SEEED_WIO_TRACKER_L1_PRO_1W",145:"MESHNOLOGY_W12",146:"MESHPAGER_X2",147:"T_CONNECT_PRO",148:"AXIOMETA_GENESIS_MINI",149:"MAKERFABS_NOMAD_TERMINAL",150:"THINKNODE_MX",151:"NODARA",152:"HELTEC_MESH_POCKET_V2",255:"PRIVATE_HW"};
+  const hwName = n => { const h = HW[n.hw]; return h ? h.split("_").map(w => /\d/.test(w) || w.length <= 2 ? w : w[0] + w.slice(1).toLowerCase()).join(" ") : ""; };
+  // One detail line: symbol, value, and on the far right how old it is. Tapping the age asks the node again.
   function kvRow(n, isMe, kind, value, t){
     const asked = askedRecently(n, kind);
-    const age = asked ? "asked " + ago(n.asked[kind]) + ", waiting…" : t ? ago(t) : "";
     const fresh = !asked && t && Date.now() - t < 15000;
     const can = meshDemo || radio.state === "live";
     const what = kind === "pos" ? "position" : "battery";
-    return '<div class="mn-kv"><span class="mn-lab"><span class="mn-sym" title="' + (kind === "pos" ? "Position" : "Battery") + '">' + (kind === "pos" ? ICON.pin : ICON.bat) + '</span>' +
-      (isMe ? "" : '<button class="mn-ic mn-ask" type="button" id="b-ask-' + kind + '-' + n.num + '" data-act="mesh-ask" data-kind="' + kind + '" data-num="' + n.num + '"' + (can && !asked ? "" : " disabled") +
-        (asked ? ' data-wait="1"' : "") + ' aria-label="Ask for a fresh ' + what + '" title="Ask for a fresh ' + what + '">' + ICON.refresh + '</button>') + '</span>' +
-      '<b class="mn-val">' + value + (age ? '<small class="' + (asked ? "" : fresh ? "fresh" : ageClass(t)) + '">' + (fresh ? "updated " : "") + age + '</small>' : "") + '</b></div>';
+    const age = asked ? "asking…" : (fresh ? "updated " : "") + (t ? ago(t) : "unknown");
+    const cls = asked ? "" : fresh ? "fresh" : ageClass(t);
+    return '<div class="mn-line"><span class="mn-sym" title="' + (kind === "pos" ? "Position" : "Battery") + '">' + (kind === "pos" ? ICON.pin : ICON.bat) + '</span>' +
+      '<span class="mn-v">' + value + '</span>' +
+      (isMe ? '<span class="mn-age ' + cls + '">' + age + '</span>'
+        : '<button class="mn-age ' + cls + '" type="button" id="b-ask-' + kind + '-' + n.num + '" data-act="mesh-ask" data-kind="' + kind + '" data-num="' + n.num + '"' + (can && !asked ? "" : " disabled") +
+          (asked ? ' data-wait="1"' : "") + ' aria-label="' + age + '. Tap to ask for a fresh ' + what + '">' + age + ICON.refresh + '</button>') + '</div>';
   }
+  const BUNNY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11.5C7.6 9 7 5.5 8.2 3.6c1.4.6 2.2 3.6 2.3 7M15 11.5c1.4-2.5 2-6 .8-7.9-1.4.6-2.2 3.6-2.3 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="12" cy="15.5" rx="5.6" ry="5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="10" cy="14.8" r=".9" fill="currentColor"/><circle cx="14" cy="14.8" r=".9" fill="currentColor"/></svg>';
   const penBtn = n => '<button class="mn-ic mn-pen" type="button" id="b-nick-' + n.num + '" data-act="mesh-rename" data-num="' + n.num + '" aria-label="Rename" title="Rename">' + ICON.pen + '</button>';
   const starBtn = n => '<button class="mn-ic mn-starbtn' + (starred(n) ? " on" : "") + '" type="button" id="b-star-' + n.num + '" data-act="mesh-star" data-num="' + n.num + '" aria-pressed="' + starred(n) + '" aria-label="Star" title="Star">' + (starred(n) ? ICON.starOn : ICON.star) + '</button>';
   // The opened part of a node: position (tap to copy) and battery, each with its refresh button.
@@ -3782,8 +3806,9 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
           '<div class="mn-rename-b"><button class="btn" type="button" data-act="mesh-rename-cancel">Cancel</button><button class="btn primary" type="submit">Save</button></div></form>' +
           '<p class="mn-asked">Only on this phone. The radio keeps its name' + (n.long ? ' “' + esc(n.long) + '”' : "") + '. Leave empty to use it again.</p>'
         : "") +
-      kvRow(n, isMe, "pos", hasPos ? '<button class="mn-coords mono" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '" aria-label="Copy coordinates">' + coords + '</button>' : "none yet", hasPos ? n.posT : null) +
-      (isMe ? "" : kvRow(n, isMe, "bat", n.bat == null ? "not shared yet" : b.t + (n.volt ? " · " + n.volt.toFixed(2) + " V" : ""), n.bat == null ? null : n.batT)) +
+      kvRow(n, isMe, "pos", hasPos ? '<button class="mn-coords mono" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '" aria-label="Copy coordinates">' + coords + '</button>' : '<span class="mn-none">none yet</span>', hasPos ? n.posT : null) +
+      (isMe ? "" : kvRow(n, isMe, "bat", n.bat == null ? '<span class="mn-none">not shared yet</span>' : b.t + (n.volt ? '<span class="mn-volt"> · ' + n.volt.toFixed(2) + " V</span>" : ""), n.bat == null ? null : n.batT)) +
+      (isMe ? "" : '<div class="mn-line"><span class="mn-sym" title="Hops">' + BUNNY + '</span><span class="mn-v">' + (n.hops != null ? n.hops : "–") + '</span><span class="mn-age mn-type">' + esc(hwName(n)) + '</span></div>') +
       (nickOf(n) && !renaming ? '<p class="mn-asked">Radio name: ' + esc(radioName(n)) + '</p>' : "") +
       '</div>';
   }
@@ -3793,8 +3818,7 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
     const rows = shown.map(n => {
       const b = batText(n), isMe = n.num === me, sel = n.num === meshSel;
       const d = !isMe && my ? distTo(my, n) : null;
-      const hops = sel && n.hops != null ? (n.hops === 0 ? "direct" : n.hops + (n.hops === 1 ? " hop" : " hops")) : null;
-      const sub = [d, n.heard ? "heard " + ago(n.heard) : "last heard unknown", hops].filter(Boolean).join(" · ");
+      const sub = [d, n.heard ? "heard " + ago(n.heard) : "last heard unknown"].filter(Boolean).join(" · ");
       return '<li class="mn' + (sel ? " sel" : "") + '"><div class="mn-row" role="button" tabindex="0" id="mn-' + n.num + '" data-act="mesh-sel" data-num="' + n.num + '" aria-expanded="' + sel + '">' +
         '<span class="mn-badge ' + ageClass(n.heard) + '">' + esc(nodeShort(n)) + '</span>' +
         '<span class="mn-txt"><span class="mn-name">' + (starred(n) && !sel ? '<span class="mn-star" aria-label="Starred">★</span>' : "") + '<span class="mn-nm">' + esc(nodeName(n)) + '</span>' + (sel ? penBtn(n) : "") + '</span>' +
