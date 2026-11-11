@@ -561,6 +561,7 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
 .mn-rename .btn{min-height:40px}
 .mn-coords{padding:4px 0;border:0;background:none;color:var(--ink);font:inherit;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:500;text-decoration:underline dotted var(--line-strong);text-underline-offset:4px;cursor:copy}
 .mn-coords:active{color:var(--accent)}
+.mn-val small.fresh{color:#3fb950;font-weight:700}
 </style>
 </head>
 <body>
@@ -3645,10 +3646,12 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
   function meshNodes(){
     const s = meshStore(), me = meshMine(), now = Date.now();
     const all = Object.values(s).filter(n => n.num !== 0xffffffff);
-    // starred first, then your radio, then most recently heard
-    all.sort((a, b) => starred(b) - starred(a) || (b.num === me) - (a.num === me) || (b.heard || 0) - (a.heard || 0));
-    const recent = all.filter(n => n.num === me || n.num === meshSel || starred(n) || (!n.heard || now - n.heard < DAY_MS));
-    return {all, shown: meshOld ? all : recent, hidden: all.length - recent.length};
+    // Your own radio is the card at the top, so it isn't listed. The order stays put when nodes update:
+    // starred first, then by name.
+    const others = all.filter(n => n.num !== me);
+    others.sort((a, b) => starred(b) - starred(a) || nodeName(a).localeCompare(nodeName(b), undefined, {numeric: true, sensitivity: "base"}));
+    const recent = others.filter(n => n.num === meshSel || starred(n) || (!n.heard || now - n.heard < DAY_MS));
+    return {all, shown: meshOld ? others : recent, hidden: others.length - recent.length};
   }
   function ago(t){
     if(!t) return "time unknown";
@@ -3724,8 +3727,9 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
   function kvRow(n, isMe, kind, label, value, t){
     const asked = askedRecently(n, kind);
     const age = asked ? "asked " + ago(n.asked[kind]) + ", waiting…" : t ? ago(t) : "";
+    const fresh = !asked && t && Date.now() - t < 15000;
     const can = meshDemo || radio.state === "live";
-    return '<div class="mn-kv"><span>' + label + '</span><b class="mn-val">' + value + (age ? '<small class="' + (asked ? "" : ageClass(t)) + '">' + age + '</small>' : "") + '</b>' +
+    return '<div class="mn-kv"><span>' + label + '</span><b class="mn-val">' + value + (age ? '<small class="' + (asked ? "" : fresh ? "fresh" : ageClass(t)) + '">' + (fresh ? "updated " : "") + age + '</small>' : "") + '</b>' +
       (isMe ? "" : '<button class="mn-ask" type="button" id="b-ask-' + kind + '-' + n.num + '" data-act="mesh-ask" data-kind="' + kind + '" data-num="' + n.num + '"' + (can && !asked ? "" : " disabled") + ' aria-label="Ask for a fresh ' + (kind === "pos" ? "position" : "battery reading") + '"' + (asked ? ' data-wait="1"' : "") + '>' + REFRESH + '</button>') + '</div>';
   }
   function meshListHTML(){
