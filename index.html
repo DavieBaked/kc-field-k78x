@@ -705,6 +705,9 @@ button.mn-age:disabled{opacity:1}
 .card.ms{position:relative;overflow:hidden}
 #b-mesh-off.danger{color:#e5484d}
 .card.ms.holding::after{border-radius:0}
+/* swiping works anywhere on a tab: on the picture, and on the empty space below a short tab */
+.sum-prev{-webkit-user-drag:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+body.has-tabs #main{min-height:calc(100vh - 120px)}
 </style>
 </head>
 <body>
@@ -4155,7 +4158,7 @@ button.mn-age:disabled{opacity:1}
     const bs = blockStats(day);
     const head = day.kml ? '<div class="blk-head"><div class="blk-tot"><span class="blk-big">' + bs.done + "/" + bs.total + '</span> <span>blocks flown</span></div>' +
       '<div class="blk-ha">' + fmtHa(bs.doneHa) + " of " + fmtHa(bs.totalHa) + ' ha</div></div>' : "";
-    const prev = '<img class="sum-img sum-prev" id="sum-prev" alt="The picture that will be shared: the day’s blocks, flown ones marked" hidden>';
+    const prev = '<img class="sum-img sum-prev" id="sum-prev" draggable="false" alt="The picture that will be shared: the day’s blocks, flown ones marked" hidden>';
     return '<div class="blk-tab sum-tab">' + head + prev + (cut >= 0 ? h.slice(cut) : "");
   }
   // The same picture Share sends, drawn into the Summary tab.
