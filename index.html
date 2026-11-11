@@ -264,6 +264,9 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 .map-wrap.kc .m-sec{opacity:.8}
 .map-wrap.teamcol .k-todo{background:transparent;border-color:var(--ink)}
 .map-wrap.teamcol .k-done{background:var(--ink);border-color:var(--ink)}
+.map-wrap.onecol .k-todo{background:color-mix(in srgb,var(--kt) 10%,transparent);border-color:var(--kt)}
+.map-wrap.onecol .k-done{background:color-mix(in srgb,var(--kt) 72%,transparent);border-color:var(--kt)}
+.map-wrap.kc .k-launch{color:var(--kl, var(--ink))}
 .m-labels text{text-anchor:middle;dominant-baseline:central;pointer-events:none;paint-order:stroke;stroke:var(--map-bg);stroke-width:.3em;stroke-linejoin:round}
 .m-lbl{fill:var(--ink);font-weight:700}
 .m-lbl.other{fill:var(--muted);font-weight:500;font-size:.85em}
@@ -2317,6 +2320,14 @@ body.has-tabs #main > *{align-content:start}
   function ptsAttr(ring, P){ return ring.map(p => { const q = P(p); return q[0].toFixed(2) + "," + q[1].toFixed(2); }).join(" "); }
   // A KML that carries its own colours draws the same in every theme.
   const kmlColoured = day => !!(day && day.kml && day.kml.groups.some(g => g.blocks.some(b => b.c)));
+  // When the teams on show share one colour (usually: one team picked), the key uses it; launch pins likewise.
+  function keyColours(day){
+    if(!kmlColoured(day)) return {};
+    const gs = day.kml.groups.filter(g => mine(day, g));
+    const bc = [...new Set(gs.flatMap(g => g.blocks.map(b => b.c).filter(Boolean)))];
+    const lc = [...new Set(gs.map(g => g.launch && g.launch.k).filter(Boolean))];
+    return {team: bc.length === 1 ? bc[0] : null, launch: lc.length === 1 ? lc[0] : null};
+  }
   function initMap(day, mode){
     mode = mode || "blocks";
     const svg = $("#map");
@@ -2369,7 +2380,12 @@ body.has-tabs #main > *{align-content:start}
     const pad = Math.max(x1 - x0, y1 - y0) * 0.08 + 0.5;
     const fit = {x: x0 - pad, y: y0 - pad, w: (x1 - x0) + pad * 2, h: (y1 - y0) + pad * 2};
     const wrapEl = svg.closest(".map-wrap"), kc = kmlColoured(day);
-    if(wrapEl){ wrapEl.classList.toggle("kc", kc); wrapEl.classList.toggle("teamcol", kc); }
+    if(wrapEl){
+      wrapEl.classList.toggle("kc", kc); wrapEl.classList.toggle("teamcol", kc);
+      const kk = keyColours(day);
+      wrapEl.classList.toggle("onecol", !!kk.team);
+      wrapEl.style.setProperty("--kt", kk.team || ""); wrapEl.style.setProperty("--kl", kk.launch || "");
+    }
     svg.innerHTML = '<rect class="m-bg" x="-100000" y="-100000" width="200000" height="200000"/>' +
       '<g>' + secs + '</g><g>' + roads + '</g><g>' + others + '</g><g id="m-blocks">' + blocks + '</g>' +
       '<g id="m-labels" class="m-labels">' + otherLabels + labels + launches + '</g>' +
@@ -2711,7 +2727,9 @@ body.has-tabs #main > *{align-content:start}
     keys[0][0] = C.on; keys[1][0] = C.todo;
     let kx = W - PAD - keys.reduce((s, k) => s + 22 + 10 + x.measureText(k[1]).width + 28, -28);
     for(const [col, t] of keys){
-      if(kc && t === "To fly"){ x.strokeStyle = ink; x.lineWidth = 2.5; x.strokeRect(kx + 1.25, H - 42.75, 19.5, 19.5); }
+      const kt = kc && keyColours(day).team;
+      if(kc && t === "To fly"){ x.fillStyle = kt ? al(kt, .1) : "transparent"; x.fillRect(kx, H - 44, 22, 22); x.strokeStyle = kt || ink; x.lineWidth = 2.5; x.strokeRect(kx + 1.25, H - 42.75, 19.5, 19.5); }
+      else if(kt){ x.fillStyle = al(kt, .72); x.fillRect(kx, H - 44, 22, 22); x.strokeStyle = kt; x.lineWidth = 2.5; x.strokeRect(kx + 1.25, H - 42.75, 19.5, 19.5); }
       else { x.fillStyle = col; x.fillRect(kx, H - 44, 22, 22); }
       kx += 32;
       x.fillStyle = C.footText; x.fillText(t, kx, H - 25); kx += x.measureText(t).width + 28;
@@ -4149,7 +4167,7 @@ body.has-tabs #main > *{align-content:start}
       else h = h.replace('<div class="blk-tab">', '<div class="blk-tab">' + MAP_HTML);
     }
     const radios = '<section class="sec mesh-sec" id="sec-radios">' +
-      '<div class="sec-head" style="pointer-events:none"><span class="sec-titles"><span class="sec-name small-name">Radios</span></span></div>' +
+      '<div class="sec-head" style="pointer-events:none"><span class="sec-titles"><span class="sec-name small-name">LoRas</span></span></div>' +
       '<div id="mesh-status">' + meshStatusHTML() + '</div><div id="mesh-list">' + meshListHTML() + '</div></section>';
     // notes and sharing live on the Summary tab
     const cut = h.indexOf('<section class="sec" id="sec-notes">');
