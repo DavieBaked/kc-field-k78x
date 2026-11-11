@@ -3262,12 +3262,12 @@ button.mn-age:disabled{opacity:1}
   function readNodeInfo(b){
     const m = PB.read(b), u = PB.bytes(m, 2), p = PB.bytes(m, 3), d = PB.bytes(m, 6);
     return {num: PB.u32(m, 1), user: u ? readUser(u) : null, pos: p ? readPosition(p) : null, snr: PB.flt(m, 4),
-      heard: plausible(PB.fx(m, 5)), metrics: d ? readMetrics(d) : null, ch: PB.u32(m, 7) || 0, hops: PB.has(m, 9) ? PB.u32(m, 9) : null};
+      heard: plausible(PB.fx(m, 5)), metrics: d ? readMetrics(d) : null, ch: PB.u32(m, 7) || 0, hops: PB.has(m, 9) ? PB.u32(m, 9) : null, mqtt: !!PB.u32(m, 8)};
   }
   function readPacket(b){
     const m = PB.read(b), d = PB.bytes(m, 4);
     const pk = {from: PB.fx(m, 1), to: PB.fx(m, 2), ch: PB.u32(m, 3) || 0, id: PB.fx(m, 6), rx: plausible(PB.fx(m, 7)),
-      snr: PB.flt(m, 8), hopLimit: PB.u32(m, 9) || 0, hopStart: PB.u32(m, 15) || 0, port: null};
+      snr: PB.flt(m, 8), hopLimit: PB.u32(m, 9) || 0, hopStart: PB.u32(m, 15) || 0, mqtt: !!PB.u32(m, 14), port: null};
     if(d){ const dm = PB.read(d); pk.port = PB.u32(dm, 1) || 0; pk.payload = PB.bytes(dm, 2) || new Uint8Array(0); pk.requestId = PB.fx(dm, 6) || 0; }
     return pk;
   }
@@ -3330,6 +3330,7 @@ button.mn-age:disabled{opacity:1}
     if(t && (!n.heard || t > n.heard)) n.heard = t;
     if(info.snr != null) n.snr = info.snr;
     if(info.hops != null) n.hops = info.hops;
+    if(info.mqtt != null) n.mqtt = info.mqtt;
     if(info.ch != null) n.ch = info.ch;
   }
 
@@ -3404,7 +3405,7 @@ button.mn-age:disabled{opacity:1}
     if(pk.port == null || pk.from == null) return;     // still encrypted: not a channel this radio has
     const t = pk.rx || Date.now();
     const hops = pk.hopStart && pk.hopStart >= pk.hopLimit ? pk.hopStart - pk.hopLimit : null;
-    const base = {ch: pk.ch, hops: pk.from === radio.num ? 0 : hops, snr: pk.from === radio.num ? null : pk.snr};
+    const base = {ch: pk.ch, hops: pk.from === radio.num ? 0 : hops, snr: pk.from === radio.num ? null : pk.snr, mqtt: pk.from === radio.num ? false : pk.mqtt};
     if(pk.port === PORT.POSITION){ const pos = readPosition(pk.payload); learn(mesh.nodes, pk.from, Object.assign(base, {pos}), t); answered(pk.from, "pos"); }
     else if(pk.port === PORT.NODEINFO){ learn(mesh.nodes, pk.from, Object.assign(base, {user: readUser(pk.payload)}), t); }
     else if(pk.port === PORT.TELEMETRY){
@@ -3720,7 +3721,7 @@ button.mn-age:disabled{opacity:1}
   const ageClass = t => !t ? "stale" : Date.now() - t > 2 * 3600e3 ? "old" : Date.now() - t > 15 * 60e3 ? "stale" : "";
   function batText(n){
     if(n.bat == null) return {t: "–", c: ""};
-    if(n.bat > 100) return {t: "Plugged in", c: "pl"};
+    if(n.bat > 100) return {t: "", c: "pl"};
     return {t: n.bat + "%", c: n.bat <= 20 ? "low" : ""};
   }
   function batIcon(n){
@@ -3792,6 +3793,8 @@ button.mn-age:disabled{opacity:1}
   // Hardware names from Meshtastic's HardwareModel list (mesh.proto), e.g. HELTEC_V4 -> "Heltec V4".
   const HW = {1:"TLORA_V2",2:"TLORA_V1",3:"TLORA_V2_1_1P6",5:"HELTEC_V2_0",6:"TBEAM_V0P7",8:"TLORA_V1_1P3",9:"RAK4631",10:"HELTEC_V2_1",11:"HELTEC_V1",13:"RAK11200",14:"NANO_G1",15:"TLORA_V2_1_1P8",16:"TLORA_T3_S3",17:"NANO_G1_EXPLORER",18:"NANO_G2_ULTRA",19:"LORA_TYPE",20:"WIPHONE",22:"RAK2560",23:"HELTEC_HRU_3601",24:"HELTEC_WIRELESS_BRIDGE",25:"STATION_G1",26:"RAK11310",27:"MAKERFABS_TRACKER",28:"MAKERFABS_RESERVED",30:"RP2040_LORA",31:"STATION_G2",32:"LORA_RELAY_V1",34:"PPR",35:"GENIEBLOCKS",36:"NRF52_UNKNOWN",37:"PORTDUINO",38:"ANDROID_SIM",39:"DIY_V1",40:"NRF52840_PCA10059",41:"DR_DEV",42:"M5STACK",43:"HELTEC_V3",44:"HELTEC_WSL_V3",45:"BETAFPV_2400_TX",46:"BETAFPV_900_NANO_TX",47:"RPI_PICO",49:"HELTEC_WIRELESS_PAPER",50:"T_DECK",51:"T_WATCH_S3",52:"PICOMPUTER_S3",53:"HELTEC_HT62",54:"EBYTE_ESP32_S3",55:"ESP32_S3_PICO",56:"CHATTER_2",57:"HELTEC_WIRELESS_PAPER_V1_0",58:"HELTEC_WIRELESS_TRACKER_V1_0",59:"UNPHONE",60:"TD_LORAC",61:"CDEBYTE_EORA_S3",62:"TWC_MESH_V4",63:"NRF52_PROMICRO_DIY",64:"RADIOMASTER_900_BANDIT_NANO",65:"HELTEC_CAPSULE_SENSOR_V3",66:"HELTEC_VISION_MASTER_T190",67:"HELTEC_VISION_MASTER_E213",68:"HELTEC_VISION_MASTER_E290",69:"HELTEC_MESH_NODE_T114",70:"SENSECAP_INDICATOR",72:"RAK3172",73:"WIO_E5",74:"RADIOMASTER_900_BANDIT",75:"ME25LS01_4Y10TD",76:"RP2040_FEATHER_RFM95",77:"M5STACK_COREBASIC",78:"M5STACK_CORE2",79:"RPI_PICO2",80:"M5STACK_CORES3",81:"SEEED_XIAO_S3",82:"MS24SF1",83:"TLORA_C6",84:"WISMESH_TAP",85:"ROUTASTIC",86:"MESH_TAB",87:"MESHLINK",88:"XIAO_NRF52_KIT",90:"THINKNODE_M2",91:"T_ETH_ELITE",92:"HELTEC_SENSOR_HUB",93:"MUZI_BASE",94:"HELTEC_MESH_POCKET",95:"SEEED_SOLAR_NODE",96:"NOMADSTAR_METEOR_PRO",97:"CROWPANEL",98:"LINK_32",101:"MUZI_R1_NEO",104:"M5STACK_RESERVED",106:"RAK3312",107:"THINKNODE_M5",108:"HELTEC_MESH_SOLAR",109:"T_ECHO_LITE",110:"HELTEC_V4",111:"M5STACK_C6L",112:"M5STACK_CARDPUTER_ADV",114:"T_WATCH_ULTRA",115:"THINKNODE_M3",116:"WISMESH_TAP_V2",117:"RAK3401",118:"RAK6421",119:"THINKNODE_M4",120:"THINKNODE_M6",121:"MESHSTICK_1262",123:"T5_S3_EPAPER_PRO",125:"MINI_EPAPER_S3",126:"TDISPLAY_S3_PRO",127:"HELTEC_MESH_NODE_T096",129:"THINKNODE_M7",130:"THINKNODE_M8",131:"THINKNODE_M9",132:"HELTEC_V4_R8",133:"HELTEC_MESH_NODE_T1",134:"STATION_G3",135:"T_IMPULSE_PLUS",136:"T_ECHO_CARD",137:"SEEED_WIO_TRACKER_L2",138:"CROWPANEL_P4",139:"HELTEC_MESH_TOWER_V2",140:"MESHNOLOGY_W10",141:"HELTEC_RC32",142:"HELTEC_RC52",143:"HELTEC_RCC6",144:"SEEED_WIO_TRACKER_L1_PRO_1W",145:"MESHNOLOGY_W12",146:"MESHPAGER_X2",147:"T_CONNECT_PRO",148:"AXIOMETA_GENESIS_MINI",149:"MAKERFABS_NOMAD_TERMINAL",150:"THINKNODE_MX",151:"NODARA",152:"HELTEC_MESH_POCKET_V2",255:"PRIVATE_HW"};
   const hwName = n => { const h = HW[n.hw]; return h ? h.split("_").map(w => /\d/.test(w) || w.length <= 2 ? w : w[0] + w.slice(1).toLowerCase()).join(" ") : ""; };
+  // how this node reaches us
+  const linkType = n => n.mqtt ? "Internet (MQTT)" : n.hops === 0 ? "Direct" : n.hops > 0 ? "Relayed" : "";
   // One detail line: symbol, value, and on the far right how old it is. Tapping the age asks the node again.
   function kvRow(n, isMe, kind, value, t){
     const asked = askedRecently(n, kind);
@@ -3821,9 +3824,9 @@ button.mn-age:disabled{opacity:1}
           '<p class="mn-asked">Only on this phone. The radio keeps its name' + (n.long ? ' “' + esc(n.long) + '”' : "") + '. Leave empty to use it again.</p>'
         : "") +
       kvRow(n, isMe, "pos", hasPos ? '<button class="mn-coords mono" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '" aria-label="Copy coordinates">' + coords + '</button>' : '<span class="mn-none">none yet</span>', hasPos ? n.posT : null) +
-      (isMe ? "" : kvRow(n, isMe, "bat", n.bat == null ? '<span class="mn-none">not shared yet</span>' : b.t + (n.volt ? '<span class="mn-volt"> · ' + n.volt.toFixed(2) + " V</span>" : ""), n.bat == null ? null : n.batT)) +
-      (isMe ? "" : '<div class="mn-line"><span class="mn-sym" title="Hops">' + BUNNY + '</span><span class="mn-v">' + (n.hops != null ? n.hops : "–") + '</span><span class="mn-age mn-type">' + esc(hwName(n)) + '</span></div>') +
-      (renaming ? "" : '<p class="mn-ident">' + esc([n.long, hex(n.num).slice(-4)].filter(Boolean).join(" · ")) + '</p>') +
+      (isMe ? "" : kvRow(n, isMe, "bat", n.bat == null ? '<span class="mn-none">not shared yet</span>' : [b.t, n.volt ? '<span class="mn-volt">' + n.volt.toFixed(2) + " V</span>" : ""].filter(Boolean).join('<span class="mn-volt"> · </span>'), n.bat == null ? null : n.batT)) +
+      (isMe ? "" : '<div class="mn-line"><span class="mn-sym" title="Hops">' + BUNNY + '</span><span class="mn-v">' + (n.hops != null ? n.hops : "–") + '</span><span class="mn-age mn-type">' + linkType(n) + '</span></div>') +
+      (renaming ? "" : '<p class="mn-ident">' + esc([n.long, hex(n.num).slice(-4), hwName(n)].filter(Boolean).join(" · ")) + '</p>') +
       '</div>';
   }
   function meshListHTML(){
