@@ -32,8 +32,8 @@ Phones pick it up the next time they open the app with signal.
 ## Mesh tab
 
 - **Android:** Chrome.
-- **iPhone:** install the free **iOSWebBLE** app (App Store), turn on its extension in Safari
-  (Settings → Apps → Safari → Extensions, and allow it on every website), then open the link in **Safari**.
+- **iPhone:** install the free **beacio** app (App Store, formerly iOSWebBLE). In Safari tap **aA → Manage Extensions** and turn on beacio,
+  then **aA → beacio → Allow on Every Website**, and reload. The Mesh tab shows these steps on an iPhone too.
   Use it in a Safari tab rather than from a home-screen icon, since extensions may not run there.
   Not yet tested with this app, so try it with signal first.
 - The radio talks to one app at a time: disconnect the Meshtastic app before connecting here, and the other way round.
