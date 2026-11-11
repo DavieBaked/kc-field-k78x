@@ -623,6 +623,9 @@ button.mn-age:disabled{opacity:1}
 .mn-v{display:flex;align-items:center;gap:6px}
 .mn-plug{width:14px;height:14px;flex:none}
 .mesh-tab:has(.mn-rename){padding-bottom:70vh}
+.mn-age.failed{color:var(--danger)}
+/* red in every theme, including the black-and-white one */
+.mn-age.failed,.mn-line.low .mn-sym,.mn-line.low .mn-v,.mn-bat.low,.ms-bat.low{color:#e5484d}
 </style>
 </head>
 <body>
@@ -3423,15 +3426,27 @@ button.mn-age:disabled{opacity:1}
       const r = PB.read(pk.payload), err = PB.u32(r, 3) || 0, a = radio.asked[pk.requestId];
       if(a && err && err !== 0){
         delete radio.asked[pk.requestId];
-        const n = mesh.nodes[a.num];
-        toast((n ? nodeName(n) : "That node") + (err === 3 || err === 5 || err === 8 ? " didn’t answer" : " couldn’t be reached"));
+        askFailed(a.num, a.kind, err === 3 || err === 5 || err === 8 ? "no answer" : "can’t reach");
       }
     }
     else learn(mesh.nodes, pk.from, base, t);
   }
+  // A request that got an error back, or no reply in time: stop spinning and show it on the line for a minute.
+  function askFailed(num, kind, why){
+    const n = meshStore()[String(num)];
+    if(!n || !n.asked || !n.asked[kind]) return;
+    n.asked[kind] = null;
+    n.fail = Object.assign(n.fail || {}, {[kind]: {t: Date.now(), why}});
+    toast(nodeName(n) + (why === "no answer" ? " didn’t answer" : " couldn’t be reached"));
+    meshChanged(true);
+    setTimeout(() => meshChanged(true), FAIL_SHOW + 100);
+  }
+  const ASK_WAIT = 90e3, FAIL_SHOW = 60e3;
+  const failedRecently = (n, kind) => n.fail && n.fail[kind] && Date.now() - n.fail[kind].t < FAIL_SHOW && !((kind === "pos" ? n.posT : n.batT) > n.fail[kind].t) ? n.fail[kind].why : null;
   function answered(num, kind){
     for(const [id, a] of Object.entries(radio.asked)) if(a.num === num && a.kind === kind) delete radio.asked[id];
     const n = mesh.nodes[String(num)]; if(n && n.asked) n.asked[kind] = null;
+    if(n && n.fail) n.fail[kind] = null;
   }
   // Sets the radio's clock from the phone, as the official apps do, so "last heard" times are right.
   function setRadioClock(){
@@ -3603,14 +3618,19 @@ button.mn-age:disabled{opacity:1}
     if(meshDemo){
       const n = meshDemo.nodes[num]; if(!n) return;
       n.asked = Object.assign(n.asked || {}, {[kind]: Date.now()});
+      if(n.fail) n.fail[kind] = null;
+      if(n.long === "Node 3"){ setTimeout(() => askFailed(num, kind, "no answer"), 4000); meshChanged(); return; }
       setTimeout(() => { const t = Date.now(); n.heard = t; if(kind === "pos") n.posT = t; else n.batT = t; n.asked[kind] = null; meshChanged(); }, 2500);
       meshChanged(); return;
     }
     if(radio.state !== "live"){ toast("Connect the radio first."); return; }
     const n = mesh.nodes[String(num)]; if(!n) return;
     const id = packetId();
-    radio.asked[id] = {num: n.num, kind, at: Date.now()};
-    n.asked = Object.assign(n.asked || {}, {[kind]: Date.now()});
+    const at = Date.now();
+    radio.asked[id] = {num: n.num, kind, at};
+    n.asked = Object.assign(n.asked || {}, {[kind]: at});
+    if(n.fail) n.fail[kind] = null;
+    setTimeout(() => { if(n.asked && n.asked[kind] === at){ delete radio.asked[id]; askFailed(n.num, kind, "no answer"); } }, ASK_WAIT);
     try{
       await send(kind === "pos"
         ? toRadio.packet({from: radio.num, to: n.num, ch: n.ch || 0, port: PORT.POSITION, payload: new Uint8Array(0), wantResponse: true, wantAck: true, id})
@@ -3619,7 +3639,7 @@ button.mn-age:disabled{opacity:1}
     }catch(e){ n.asked[kind] = null; toast("Couldn’t send. Is the radio still connected?"); }
     meshChanged();
   }
-  const askedRecently = (n, kind) => n.asked && n.asked[kind] && Date.now() - n.asked[kind] < 5 * 60e3;
+  const askedRecently = (n, kind) => n.asked && n.asked[kind] && Date.now() - n.asked[kind] < ASK_WAIT;
 
   /* ---- demo: made-up nodes so the layout can be tried anywhere ---- */
   let meshDemo = null;
@@ -3809,8 +3829,9 @@ button.mn-age:disabled{opacity:1}
     const fresh = !asked && t && Date.now() - t < 15000;
     const can = meshDemo || radio.state === "live";
     const what = kind === "pos" ? "position" : "battery";
-    const age = asked ? "asking…" : (t ? ago(t) : "unknown");
-    const cls = asked ? "" : fresh ? "fresh" : ageClass(t);
+    const fail = !asked && failedRecently(n, kind);
+    const age = asked ? "asking…" : fail ? fail : (t ? ago(t) : "unknown");
+    const cls = asked ? "" : fail ? "failed" : fresh ? "fresh" : ageClass(t);
     const bc = kind === "bat" ? batText(n).c : "";
     return '<div class="mn-line' + (bc ? " " + bc : "") + '"><span class="mn-sym" title="' + (kind === "pos" ? "Position" : "Battery") + '">' + (kind === "pos" ? ICON.pin : batIcon(n, true)) + '</span>' +
       '<span class="mn-v">' + value + '</span>' +
