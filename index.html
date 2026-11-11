@@ -622,7 +622,7 @@ button.mn-age:disabled{opacity:1}
 .mn-v .mn-volt{color:var(--muted)}
 .mn-v{display:flex;align-items:center;gap:6px}
 .mn-plug{width:14px;height:14px;flex:none}
-.mesh-tab:has(.mn-rename){padding-bottom:70vh}
+.blk-tab:has(.mn-rename){padding-bottom:70vh}
 .mn-age.failed{color:var(--danger)}
 /* red in every theme, including the black-and-white one */
 .mn-age.failed,.mn-line.low .mn-sym,.mn-line.low .mn-v,.mn-bat.low,.ms-bat.low{color:#e5484d}
@@ -640,7 +640,7 @@ button.mn-age:disabled{opacity:1}
 .tb .mdot{position:absolute;top:9px;left:calc(50% + 9px);box-shadow:0 0 0 2px var(--bg)}
 /* hold a node 2 s -> popup with slide to turn off */
 .mn-row,.ms-me,.mn-det{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
-.mn-row.holding,.ms-me.holding,.mn-det.holding{background-image:linear-gradient(90deg,color-mix(in srgb,#e5484d 18%,transparent) 0 0);background-repeat:no-repeat;background-size:0 100%;animation:mx-hold 2s linear forwards}
+.mn-row.holding,.ms-me.holding,.mn-det.holding{background-image:linear-gradient(90deg,color-mix(in srgb,#e5484d 18%,transparent) 0 0);background-repeat:no-repeat;background-size:0 100%;animation:mx-hold 1s linear forwards}
 @keyframes mx-hold{from{background-size:0 100%}to{background-size:100% 100%}}
 .mx-pop{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
 .mx-pop[hidden]{display:none}
@@ -658,7 +658,7 @@ button.mn-age:disabled{opacity:1}
 .mx-who{margin:-4px 0 0;font-weight:600;font-size:calc(15px * var(--fs))}
 .mx-off-k{position:absolute;z-index:1;left:4px;top:3px;width:44px;height:44px;border-radius:50%;background:#e5484d;color:#fff;display:flex;align-items:center;justify-content:center;cursor:grab;touch-action:none}
 .mx-off-k svg{width:22px;height:22px}
-@media (prefers-reduced-motion: reduce){.mn-row.holding,.ms-me.holding{animation-duration:2s}}
+@media (prefers-reduced-motion: reduce){.mn-row.holding,.ms-me.holding{animation-duration:1s}}
 .mx-card .btn[disabled]{opacity:.45}
 /* power-off popup: tidy */
 .mx-card{gap:0;padding:20px}
@@ -667,6 +667,17 @@ button.mn-age:disabled{opacity:1}
 .mx-card .mx-s{margin:0 0 16px}
 .mx-card .mx-st{margin:10px 0 0}
 .mx-card [data-off-cancel]{margin-top:10px}
+/* radios on the map: small name tags */
+.m-tag rect{fill:var(--surface);stroke:var(--ink);stroke-width:1.2;vector-effect:non-scaling-stroke}
+.m-tag text{fill:var(--ink);font-weight:700;text-anchor:middle;dominant-baseline:central;letter-spacing:.02em}
+.m-tag.me rect{fill:var(--ink)}
+.m-tag.me text{fill:var(--bg)}
+.m-tag.sel rect{fill:var(--accent);stroke:var(--accent)}
+.m-tag.sel text{fill:var(--accent-ink, var(--bg))}
+.m-tag.stale{opacity:.75}
+.m-tag.old{opacity:.5}
+.m-tag{pointer-events:none}
+.mesh-sec #mesh-list{margin-top:10px}
 </style>
 </head>
 <body>
@@ -1188,7 +1199,7 @@ button.mn-age:disabled{opacity:1}
   let view = {mode:"day", dayId: current().id};
   let foldT = 0;
   let dayTab = "list";
-  try{ const t = localStorage.getItem("flightDayLog.tab"); if(t === "blocks" || t === "mesh") dayTab = t; }catch(e){}
+  try{ const t = localStorage.getItem("flightDayLog.tab"); if(t === "blocks" || t === "mesh") dayTab = "blocks"; if(t === "summary") dayTab = t; }catch(e){}
   let pending = null;
 
   /* ---------- text that follows the date/drone/camera fields ---------- */
@@ -1275,10 +1286,10 @@ button.mn-age:disabled{opacity:1}
         '<span>Checklist</span><span class="n" id="tab-list-n">' + done + "/" + all.length + '</span></button>' +
       '<button class="tb' + (dayTab === "blocks" ? " on" : "") + '" type="button" role="tab" id="t-blocks" aria-selected="' + (dayTab === "blocks") + '" data-act="tab" data-tab="blocks">' +
         '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5L3.5 6.5v13L9 17.5l6 2 5.5-2v-13L15 6.5l-6-2zM9 4.5v13M15 6.5v13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-        '<span>Blocks</span><span class="n" id="tab-blocks-n">' + (bs.total ? bs.done + "/" + bs.total : "") + '</span></button>' +
-      '<button class="tb' + (dayTab === "mesh" ? " on" : "") + '" type="button" role="tab" id="t-mesh" aria-selected="' + (dayTab === "mesh") + '" data-act="tab" data-tab="mesh">' +
-        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 13.5v7M8.5 10a4.9 4.9 0 017 0M5.6 7.2a9 9 0 0112.8 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12.6" r="1.6" fill="currentColor"/></svg>' +
-        '<span>Mesh</span><span class="n mdot" id="tab-mesh-n"></span></button>';
+        '<span>Map</span><span class="n" id="tab-blocks-n">' + (bs.total ? bs.done + "/" + bs.total : "") + '</span><span class="n mdot" id="tab-mesh-n"></span></button>' +
+      '<button class="tb' + (dayTab === "summary" ? " on" : "") + '" type="button" role="tab" id="t-summary" aria-selected="' + (dayTab === "summary") + '" data-act="tab" data-tab="summary">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3L10.2 13.8M21 3l-6.8 18-4-7.2L3 9.8 21 3z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        '<span>Summary</span></button>';
     updateMeshTab();
 
     $("#top").innerHTML = '<div class="wrap head">' +
@@ -1308,19 +1319,18 @@ button.mn-age:disabled{opacity:1}
         '<div class="links"><button class="btn primary" type="button" id="b-uselist" data-act="use-new-list">Use new list</button>' +
         '<button class="btn" type="button" id="b-keeplist" data-act="keep-list">Keep mine</button></div></div>');
 
-    if(dayTab === "mesh"){
-      parts.push(meshTab(day));
-      $("#main").innerHTML = parts.join("");
-      if($("#map")) initMap(day, "mesh");
-      applyWake();
-      return;
-    }
     applyWake();
-    if(dayTab === "blocks"){
-      parts.push(blocksTab(day));
+    if(dayTab === "summary"){
+      parts.push(summaryTab(day));
       $("#main").innerHTML = parts.join("");
       autosize($("#f-notes"));
-      initMap(day);
+      return;
+    }
+    if(dayTab === "blocks"){
+      parts.push(mapTab(day));
+      $("#main").innerHTML = parts.join("");
+      autosize($("#f-notes"));
+      initMap(day, "mesh");
       return;
     }
 
@@ -2415,7 +2425,7 @@ button.mn-age:disabled{opacity:1}
       pts.delete(e.pointerId);
       if(wasTap){
         const poly = start.target && start.target.closest && start.target.closest("[data-block]");
-        if(map.mode === "mesh") meshTapAt(start.x, start.y);
+        if(map.mode === "mesh") meshTapAt(start.x, start.y, poly && poly.getAttribute("data-block"));
         else if(poly) toggleBlock(map.day, poly.getAttribute("data-block"));
       }
       snapshot();
@@ -2897,7 +2907,7 @@ button.mn-age:disabled{opacity:1}
       day.kml = null; day.blocks = []; save(); render();
     }
     else if(act === "block"){ if(day) toggleBlock(day, b.dataset.id); }
-    else if(act === "tab"){ slideTo(["blocks", "mesh"].includes(b.dataset.tab) ? b.dataset.tab : "list"); }
+    else if(act === "tab"){ slideTo(["blocks", "summary"].includes(b.dataset.tab) ? b.dataset.tab : "list"); }
     else if(act === "team-toggle"){
       const t = b.dataset.team;
       if(teamSel.has(t)) teamSel.delete(t); else teamSel.add(t);
@@ -3635,7 +3645,7 @@ button.mn-age:disabled{opacity:1}
   function refit(){
     const day = getDay(view.dayId);
     if(day){ mapViews.delete(day.id + ":mesh"); }
-    if(view.mode === "day" && dayTab === "mesh") render();
+    if(view.mode === "day" && dayTab === "blocks") render();
   }
   function setRadioState(s){
     const was = radio.state;
@@ -3766,7 +3776,7 @@ button.mn-age:disabled{opacity:1}
   let wakeOn = false, wakeLock = null;
   try{ wakeOn = localStorage.getItem("flightDayLog.wake") === "1"; }catch(e){}
   async function applyWake(){
-    const want = wakeOn && view.mode === "day" && dayTab === "mesh" && document.visibilityState === "visible";
+    const want = wakeOn && view.mode === "day" && dayTab === "blocks" && document.visibilityState === "visible";
     if(want && !wakeLock && navigator.wakeLock){
       try{ wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); }catch(e){}
     } else if(!want && wakeLock){ try{ await wakeLock.release(); }catch(e){} wakeLock = null; }
@@ -3919,7 +3929,7 @@ button.mn-age:disabled{opacity:1}
      Security → Admin Key holds my radio's public key; it then needs a fresh session passkey first. */
   const POWER = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8M7.1 6.4a7 7 0 109.8 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
   const adminKeys = {}, adminWait = {}, adminReq = {};
-  const HOLD_MS = 2000;
+  const HOLD_MS = 1000;
   let offDrag = null, offNum = null, hold = null;
 
   // hold
@@ -4098,26 +4108,42 @@ button.mn-age:disabled{opacity:1}
       (hidden ? '<button class="link mn-more" type="button" id="b-mesh-old" data-act="mesh-old">' + (meshOld ? "Hide nodes not heard today" : "Show " + hidden + " not heard today") + '</button>' : "");
   }
   function meshHasPositions(){ return Object.values(meshStore()).some(n => n.lat != null); }
-  function meshTab(day){
-    const showMap = !!(day.kml && day.kml.groups.some(g => g.blocks.some(b => b.ring && b.ring.length > 2))) || meshHasPositions();
-    return '<div class="mesh-tab">' +
-      '<div id="mesh-status">' + meshStatusHTML() + '</div>' +
-      (showMap ? '<div class="map-wrap card" id="map-wrap"><svg id="map" class="map" role="img" aria-label="Map of the mesh nodes and the day’s blocks"></svg>' +
-        '<div class="map-ctl"><button type="button" class="map-btn" id="b-mapfit" data-act="map-fit" aria-label="Show everything and lock the map"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>' +
-        '</div>' : "") +
-      '<div id="mesh-list">' + meshListHTML() + '</div></div>';
+  // The map tab: the day's blocks (tap to tick) with the radios on the same map, then the radio list.
+  const MAP_HTML = '<div class="map-wrap card" id="map-wrap"><svg id="map" class="map" role="img" aria-label="Map of the radios and the day’s blocks"></svg>' +
+    '<div class="map-ctl"><button type="button" class="map-btn" id="b-mapfit" data-act="map-fit" aria-label="Show everything and lock the map"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>';
+  function mapTab(day){
+    let h = blocksTab(day);
+    if(!h.includes('id="map"') && meshHasPositions()){
+      if(h.includes('<div class="kml-empty">'))
+        h = h.replace(/<div class="kml-empty">[\s\S]*?<\/div>/, MAP_HTML + '<div class="kml-meta"><button class="btn primary" type="button" id="b-kml" data-act="kml-load">Load KML</button></div>');
+      else h = h.replace('<div class="blk-tab">', '<div class="blk-tab">' + MAP_HTML);
+    }
+    const radios = '<section class="sec mesh-sec" id="sec-radios">' +
+      '<div class="sec-head" style="pointer-events:none"><span class="sec-titles"><span class="sec-name small-name">Radios</span></span></div>' +
+      '<div id="mesh-status">' + meshStatusHTML() + '</div><div id="mesh-list">' + meshListHTML() + '</div></section>';
+    // notes and sharing live on the Summary tab
+    const cut = h.indexOf('<section class="sec" id="sec-notes">');
+    return (cut >= 0 ? h.slice(0, cut) : h.replace(/<\/div>$/, "")) + radios + '</div>';
+  }
+  // The Summary tab: how the day went, notes, and the share button.
+  function summaryTab(day){
+    const h = blocksTab(day), cut = h.indexOf('<section class="sec" id="sec-notes">');
+    const bs = blockStats(day);
+    const head = day.kml ? '<div class="blk-head"><div class="blk-tot"><span class="blk-big">' + bs.done + "/" + bs.total + '</span> <span>blocks flown</span></div>' +
+      '<div class="blk-ha">' + fmtHa(bs.doneHa) + " of " + fmtHa(bs.totalHa) + ' ha</div></div>' : "";
+    return '<div class="blk-tab sum-tab">' + head + (cut >= 0 ? h.slice(cut) : "");
   }
   // Redraws the parts that change, without rebuilding the map.
   let meshRaf = 0, meshLast = 0;
   function meshChanged(now){
     if(!meshDemo) meshSave();
     updateMeshTab();
-    if(view.mode !== "day" || dayTab !== "mesh") return;
+    if(view.mode !== "day" || dayTab !== "blocks") return;
     if(meshRaf) return;
     const wait = now ? 0 : Math.max(0, 400 - (Date.now() - meshLast));
     meshRaf = setTimeout(() => {
       meshRaf = 0; meshLast = Date.now();
-      if(view.mode !== "day" || dayTab !== "mesh") return;
+      if(view.mode !== "day" || dayTab !== "blocks") return;
       if(!$("#map") && meshHasPositions()){ render(); return; }
       const st = $("#mesh-status"), li = $("#mesh-list");
       // a node being held keeps its row: redraw the list once the finger lifts
@@ -4133,7 +4159,7 @@ button.mn-age:disabled{opacity:1}
     const live = meshDemo || radio.state === "live";
     n.className = "n mdot" + (live ? " live" : radio.state === "lost" ? " lost" : radio.state === "connecting" || radio.state === "syncing" ? " busy" : "");
   }
-  setInterval(() => { if(view.mode === "day" && dayTab === "mesh") meshChanged(); }, 20000);   // keeps the "x min ago" fresh
+  setInterval(() => { if(view.mode === "day" && dayTab === "blocks") meshChanged(); }, 20000);   // keeps the "x min ago" fresh
 
   // Node dots on the map (called by the map whenever the view changes).
   function drawNodes(){
@@ -4143,18 +4169,25 @@ button.mn-age:disabled{opacity:1}
     let dots = "", lbl = "";
     const list = Object.values(store).filter(n => n.lat != null && (n.num === me || n.num === meshSel || meshOld || starred(n) || (!n.heard || Date.now() - n.heard < DAY_MS)));
     list.sort((a, b) => (a.num === meshSel) - (b.num === meshSel));
+    // each radio is a small tag with its short name, centred on where it is
     for(const n of list){
       const q = map.P([n.lon, n.lat]), sel = n.num === meshSel, isMe = n.num === me;
-      const r = (sel ? 9 : 7) * px, cls = "m-node" + (isMe ? " me" : "") + (sel ? " sel" : "") + " " + ageClass(n.posT);
-      if(sel) dots += '<circle class="m-node-ring" cx="' + q[0].toFixed(3) + '" cy="' + q[1].toFixed(3) + '" r="' + (16 * px).toFixed(4) + '"/>';
-      dots += isMe
-        ? '<rect class="' + cls + '" data-node="' + n.num + '" x="' + (q[0] - r).toFixed(3) + '" y="' + (q[1] - r).toFixed(3) + '" width="' + (2 * r).toFixed(4) + '" height="' + (2 * r).toFixed(4) + '" rx="' + (2 * px).toFixed(4) + '"/>'
-        : '<circle class="' + cls + '" data-node="' + n.num + '" cx="' + q[0].toFixed(3) + '" cy="' + q[1].toFixed(3) + '" r="' + r.toFixed(4) + '"/>';
-      lbl += '<text class="m-node-lbl' + (sel ? " sel" : "") + '" x="' + q[0].toFixed(3) + '" y="' + (q[1] - r - 4 * px).toFixed(3) + '">' + esc(nodeShort(n)) + '</text>';
+      const cls = "m-tag" + (isMe ? " me" : "") + (sel ? " sel" : "") + " " + ageClass(n.posT);
+      dots += '<g class="' + cls + '" data-node="' + n.num + '" transform="translate(' + q[0].toFixed(3) + " " + q[1].toFixed(3) + ')">' +
+        '<rect y="' + (-8 * px).toFixed(4) + '" height="' + (16 * px).toFixed(4) + '" rx="' + (4 * px).toFixed(4) + '"/>' +
+        '<text y="' + (0.5 * px).toFixed(4) + '">' + esc(nodeShort(n)) + '</text></g>';
     }
-    g.setAttribute("font-size", (11 * px).toFixed(4));
-    g.setAttribute("stroke-width", (3 * px).toFixed(4));      // the outline round each label, in map units
-    g.innerHTML = dots + lbl;
+    g.setAttribute("font-size", (10.5 * px).toFixed(4));
+    g.removeAttribute("stroke-width");
+    g.innerHTML = dots;
+    // size each tag to its text
+    g.querySelectorAll(".m-tag").forEach(t => {
+      const tx = t.querySelector("text"), rc = t.querySelector("rect");
+      let w = 0; try{ w = tx.getComputedTextLength(); }catch(e){}
+      if(!w) w = tx.textContent.length * 6.6 * px;
+      w += 10 * px;
+      rc.setAttribute("x", (-w / 2).toFixed(4)); rc.setAttribute("width", w.toFixed(4));
+    });
     if(tg){
       const n = store[String(meshSel)];
       const pts = n && n.track && n.track.length > 1 ? n.track.filter(p => Date.now() - p[2] < 12 * 3600e3) : [];
@@ -4173,20 +4206,9 @@ button.mn-age:disabled{opacity:1}
     return p => [(p[0] - lon0) * k * 1000, -(p[1] - lat0) * 1000];
   }
   // A tap on the map picks the nearest node within a finger's width.
-  function meshTapAt(cx, cy){
-    if(!map || !map.vb) return;
-    const r = map.svg.getBoundingClientRect(), v = map.vb;
-    let best = null, bd = 26;
-    for(const n of Object.values(meshStore())){
-      if(n.lat == null) continue;
-      const q = map.P([n.lon, n.lat]);
-      const sx = r.left + (q[0] - v.x) / v.w * r.width, sy = r.top + (q[1] - v.y) / v.h * r.height;
-      const d = Math.hypot(sx - cx, sy - cy);
-      if(d < bd){ bd = d; best = n; }
-    }
-    meshSel = best ? (meshSel === best.num ? null : best.num) : null;
-    meshChanged(true);
-    if(best && meshSel != null){ const row = document.getElementById("mn-" + best.num); if(row) setTimeout(() => row.scrollIntoView({behavior: reduceMotion ? "auto" : "smooth", block: "nearest"}), 450); }
+  // A tap on the map only ever ticks blocks; the radio tags are just for looking.
+  function meshTapAt(cx, cy, block){
+    if(block && map) toggleBlock(map.day, block);
   }
   function meshFocus(num){
     const n = meshStore()[String(num)];
@@ -4274,7 +4296,7 @@ button.mn-age:disabled{opacity:1}
      The page follows a sideways drag from the first few pixels. Let go past a fifth of the screen,
      or flick, and the old tab carries on off the screen while the new one slides in beside it;
      otherwise it springs back. A drag that starts up or down is left to scroll the page. */
-  const TABS = ["list", "blocks", "mesh"];
+  const TABS = ["list", "blocks", "summary"];
   const mainEl = $("#main");
   const EASE = "cubic-bezier(.2,.75,.25,1)";
   let sliding = false, sw = null, swRaf = 0;
