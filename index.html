@@ -562,6 +562,11 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
 .mn-coords{padding:4px 0;border:0;background:none;color:var(--ink);font:inherit;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:500;text-decoration:underline dotted var(--line-strong);text-underline-offset:4px;cursor:copy}
 .mn-coords:active{color:var(--accent)}
 .mn-val small.fresh{color:#3fb950;font-weight:700}
+.ms-me{width:calc(100% + 32px);margin:0 -16px;padding:6px 16px;border:0;background:none;color:inherit;text-align:left;font:inherit}
+.ms-me.sel{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.ms-bat-l b{color:var(--ink);font-weight:600}
+.ms-chev{margin-left:auto;color:var(--muted);font-size:calc(14px * var(--fs))}
+.ms .mn-det{margin:-12px -16px 0}
 </style>
 </head>
 <body>
@@ -3687,8 +3692,10 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
   function meshStatusHTML(){
     const me = meshStore()[String(meshMine())];
     const myBat = me && me.bat != null ? batText(me) : null;
-    const batRow = me ? '<div class="ms-bat' + (myBat && myBat.c ? " " + myBat.c : "") + '">' + batIcon(me) +
-      '<span class="ms-bat-n">' + (myBat ? myBat.t : "–") + '</span><span class="ms-bat-l">Your radio' + (me.batT && radio.state !== "live" && !meshDemo ? " · " + ago(me.batT) : "") + '</span></div>' : "";
+    const meSel = me && meshSel === me.num;
+    const batRow = me ? '<button class="ms-bat ms-me' + (myBat && myBat.c ? " " + myBat.c : "") + (meSel ? " sel" : "") + '" type="button" id="mn-' + me.num + '" data-act="mesh-sel" data-num="' + me.num + '" aria-expanded="' + meSel + '">' + batIcon(me) +
+      '<span class="ms-bat-n">' + (myBat ? myBat.t : "–") + '</span><span class="ms-bat-l"><b>' + esc(nodeName(me)) + '</b>' + (me.batT && radio.state !== "live" && !meshDemo ? " · " + ago(me.batT) : "") + '</span>' +
+      '<span class="ms-chev" aria-hidden="true">' + (meSel ? "▴" : "▾") + '</span></button>' + (meSel ? detailHTML(me, true) : "") : "";
     let head = "", body = "", acts = "";
     if(meshDemo){
       head = '<span class="ms-dot demo"></span><span class="ms-t">Demo</span><span class="ms-s">Made-up nodes, nothing real</span>';
@@ -3732,6 +3739,27 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
     return '<div class="mn-kv"><span>' + label + '</span><b class="mn-val">' + value + (age ? '<small class="' + (asked ? "" : fresh ? "fresh" : ageClass(t)) + '">' + (fresh ? "updated " : "") + age + '</small>' : "") + '</b>' +
       (isMe ? "" : '<button class="mn-ask" type="button" id="b-ask-' + kind + '-' + n.num + '" data-act="mesh-ask" data-kind="' + kind + '" data-num="' + n.num + '"' + (can && !asked ? "" : " disabled") + ' aria-label="Ask for a fresh ' + (kind === "pos" ? "position" : "battery reading") + '"' + (asked ? ' data-wait="1"' : "") + '>' + REFRESH + '</button>') + '</div>';
   }
+  // The opened part of a node: position (tap to copy), battery, rename, star.
+  function detailHTML(n, isMe){
+    const b = batText(n);
+      const hasPos = n.lat != null;
+      const coords = hasPos ? n.lat.toFixed(5) + ", " + n.lon.toFixed(5) : "";
+      const renaming = meshRename === n.num;
+      return '<div class="mn-det">' +
+        (renaming
+          ? '<form class="mn-rename" data-num="' + n.num + '"><input id="nick-' + n.num + '" type="text" maxlength="30" autocomplete="off" placeholder="' + esc(radioName(n)) + '" value="' + esc(nickOf(n)) + '" aria-label="Nickname">' +
+            '<button class="btn primary" type="submit">Save</button><button class="btn" type="button" data-act="mesh-rename-cancel">Cancel</button></form>' +
+            '<p class="mn-asked">Only on this phone. The radio keeps its name' + (n.long ? ' “' + esc(n.long) + '”' : "") + '. Leave empty to use it again.</p>'
+          : "") +
+        (nickOf(n) && !renaming ? '<div class="mn-kv"><span>Radio name</span><b>' + esc(radioName(n)) + '</b></div>' : "") +
+        kvRow(n, isMe, "pos", "Position", hasPos ? '<button class="mn-coords mono" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '" aria-label="Copy coordinates">' + coords + '</button>' : "none yet", hasPos ? n.posT : null) +
+        (isMe ? "" : kvRow(n, isMe, "bat", "Battery", n.bat == null ? (isMe ? "unknown" : "not shared yet") : b.t + (n.volt ? " · " + n.volt.toFixed(2) + " V" : ""), n.bat == null ? null : n.batT)) +
+        (n.hops != null && !isMe ? '<div class="mn-kv"><span>Hops</span><b>' + (n.hops === 0 ? "direct" : n.hops) + (n.snr != null && n.hops === 0 ? " · SNR " + n.snr.toFixed(1) : "") + '</b></div>' : "") +
+        '<div class="mn-acts">' +
+          (isMe ? "" : '<button class="btn" type="button" id="b-star-' + n.num + '" data-act="mesh-star" data-num="' + n.num + '" aria-pressed="' + starred(n) + '">' + (starred(n) ? "★ Starred" : "☆ Star") + '</button>') +
+          (renaming ? "" : '<button class="btn" type="button" id="b-nick-' + n.num + '" data-act="mesh-rename" data-num="' + n.num + '">Rename</button>') +
+        '</div></div>';
+  }
   function meshListHTML(){
     const {shown, hidden} = meshNodes(), me = meshMine(), store = meshStore(), my = store[String(me)];
     if(!shown.length) return '<p class="mesh-empty">' + (radio.state === "syncing" ? "Loading nodes…" : "No nodes yet.") + '</p>';
@@ -3739,26 +3767,7 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
       const b = batText(n), isMe = n.num === me, sel = n.num === meshSel;
       const d = !isMe && my ? distTo(my, n) : null;
       const sub = [isMe ? "Your radio" : null, d, n.heard ? "heard " + ago(n.heard) : "last heard unknown"].filter(Boolean).join(" · ");
-      let det = "";
-      if(sel){
-        const hasPos = n.lat != null;
-        const coords = hasPos ? n.lat.toFixed(5) + ", " + n.lon.toFixed(5) : "";
-        const renaming = meshRename === n.num;
-        det = '<div class="mn-det">' +
-          (renaming
-            ? '<form class="mn-rename" data-num="' + n.num + '"><input id="nick-' + n.num + '" type="text" maxlength="30" autocomplete="off" placeholder="' + esc(radioName(n)) + '" value="' + esc(nickOf(n)) + '" aria-label="Nickname">' +
-              '<button class="btn primary" type="submit">Save</button><button class="btn" type="button" data-act="mesh-rename-cancel">Cancel</button></form>' +
-              '<p class="mn-asked">Only on this phone. The radio keeps its name' + (n.long ? ' “' + esc(n.long) + '”' : "") + '. Leave empty to use it again.</p>'
-            : "") +
-          (nickOf(n) && !renaming ? '<div class="mn-kv"><span>Radio name</span><b>' + esc(radioName(n)) + '</b></div>' : "") +
-          kvRow(n, isMe, "pos", "Position", hasPos ? '<button class="mn-coords mono" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '" aria-label="Copy coordinates">' + coords + '</button>' : "none yet", hasPos ? n.posT : null) +
-          kvRow(n, isMe, "bat", "Battery", n.bat == null ? (isMe ? "unknown" : "not shared yet") : b.t + (n.volt ? " · " + n.volt.toFixed(2) + " V" : ""), n.bat == null ? null : n.batT) +
-          (n.hops != null && !isMe ? '<div class="mn-kv"><span>Hops</span><b>' + (n.hops === 0 ? "direct" : n.hops) + (n.snr != null && n.hops === 0 ? " · SNR " + n.snr.toFixed(1) : "") + '</b></div>' : "") +
-          '<div class="mn-acts">' +
-            '<button class="btn" type="button" id="b-star-' + n.num + '" data-act="mesh-star" data-num="' + n.num + '" aria-pressed="' + starred(n) + '">' + (starred(n) ? "★ Starred" : "☆ Star") + '</button>' +
-            (renaming ? "" : '<button class="btn" type="button" id="b-nick-' + n.num + '" data-act="mesh-rename" data-num="' + n.num + '">Rename</button>') +
-          '</div></div>';
-      }
+      const det = sel ? detailHTML(n, isMe) : "";
       return '<li class="mn' + (sel ? " sel" : "") + '"><button class="mn-row" type="button" id="mn-' + n.num + '" data-act="mesh-sel" data-num="' + n.num + '" aria-expanded="' + sel + '">' +
         '<span class="mn-badge' + (isMe ? " me" : "") + ' ' + ageClass(n.heard) + '">' + esc(nodeShort(n)) + '</span>' +
         '<span class="mn-txt"><span class="mn-name">' + (starred(n) ? '<span class="mn-star" aria-label="Starred">★</span>' : "") + esc(nodeName(n)) + '</span><span class="mn-sub ' + ageClass(n.heard) + '">' + esc(sub) + '</span></span>' +
@@ -3790,7 +3799,7 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
       if(view.mode !== "day" || dayTab !== "mesh") return;
       if(!$("#map") && meshHasPositions()){ render(); return; }
       const st = $("#mesh-status"), li = $("#mesh-list");
-      if(st) st.innerHTML = meshStatusHTML();
+      if(st && meshRename !== meshMine()) st.innerHTML = meshStatusHTML();
       if(li && meshRename == null) li.innerHTML = meshListHTML();
       drawNodes();
       applyWake();
@@ -3878,7 +3887,7 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
       if(n && n.lat != null) copyText(n.lat.toFixed(6) + ", " + n.lon.toFixed(6)).then(ok => toast(ok ? "Coordinates copied" : n.lat.toFixed(6) + ", " + n.lon.toFixed(6)));
     }
     else if(act === "mesh-star"){ const k = String(num); if(mesh.star[k]) delete mesh.star[k]; else mesh.star[k] = true; meshSaveNow(); meshChanged(true); drawNodes(); }
-    else if(act === "mesh-rename"){ meshRename = num; const li = $("#mesh-list"); if(li) li.innerHTML = meshListHTML(); const i = document.getElementById("nick-" + num); if(i){ i.focus(); i.select(); } }
+    else if(act === "mesh-rename"){ meshRename = num; const li = $("#mesh-list"), st = $("#mesh-status"); if(li) li.innerHTML = meshListHTML(); if(st) st.innerHTML = meshStatusHTML(); const i = document.getElementById("nick-" + num); if(i){ i.focus(); i.select(); } }
     else if(act === "mesh-rename-cancel"){ meshRename = null; meshChanged(true); }
     else if(act === "mesh-old"){ meshOld = !meshOld; meshChanged(true); }
     else if(act === "mesh-loc"){ shareLoc = !shareLoc; try{ localStorage.setItem("flightDayLog.shareLoc", shareLoc ? "1" : "0"); }catch(e){} meshGeoSync(); meshChanged(true); }
