@@ -31,7 +31,11 @@ Phones pick it up the next time they open the app with signal.
 
 ## Mesh tab
 
-- Needs **Chrome on Android**. iPhones can't use Bluetooth from a web page (the rest of the app works there).
+- **Android:** Chrome.
+- **iPhone:** install the free **iOSWebBLE** app (App Store), turn on its extension in Safari
+  (Settings → Apps → Safari → Extensions, and allow it on every website), then open the link in **Safari**.
+  Use it in a Safari tab rather than from a home-screen icon, since extensions may not run there.
+  Not yet tested with this app, so try it with signal first.
 - The radio talks to one app at a time: disconnect the Meshtastic app before connecting here, and the other way round.
 - The first time, Chrome shows a list of radios and may ask for the radio's PIN. After that it reconnects by itself where Chrome allows, or with one tap.
 - If Android puts the page to sleep, the link drops. The tab turns red and says how long ago; tap **Reconnect**.

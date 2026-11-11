@@ -537,6 +537,11 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
 .m-node-lbl.sel{fill:var(--accent)}
 .m-track{fill:none;stroke:var(--accent);stroke-width:2;stroke-dasharray:5 4;vector-effect:non-scaling-stroke;opacity:.8}
 /* Disconnected stays red in every theme, even black and white ones: it matters. */
+.ms-share{min-height:56px;margin-bottom:-12px}
+.ms-sw-t{display:grid;text-align:left;gap:1px}
+.ms-sw-t small{color:var(--muted);font-size:calc(12px * var(--fs))}
+.ms-sw-t small.err{color:#e5484d}
+body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))}
 </style>
 </head>
 <body>
@@ -3223,17 +3228,19 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
     return store[k] || (store[k] = {num: num >>> 0, long: "", short: "", bat: null, volt: null, batT: null, lat: null, lon: null, posT: null, heard: null, snr: null, hops: null, ch: 0, track: []});
   }
   // Applies anything learnt about a node. `t` is when it was true (ms).
-  function learn(store, num, info, t){
+  // fromDb: it came from the radio's saved node list, where a missing time means "unknown", not "now".
+  function learn(store, num, info, t, fromDb){
     if(num == null) return;
+    const now = fromDb ? null : Date.now();
     const n = nodeOf(store, num);
     if(info.user){ if(info.user.long) n.long = info.user.long; if(info.user.short) n.short = info.user.short; if(info.user.id) n.id = info.user.id; }
-    if(info.metrics && info.metrics.bat != null && (!n.batT || !t || t >= n.batT)){ n.bat = info.metrics.bat; n.volt = info.metrics.volt; n.batT = t || n.batT || Date.now(); }
+    if(info.metrics && info.metrics.bat != null && (!n.batT || !t || t >= n.batT)){ n.bat = info.metrics.bat; n.volt = info.metrics.volt; n.batT = t || n.batT || now; }
     if(info.pos){
-      const pt = info.pos.t || t || Date.now();
-      if(!n.posT || pt >= n.posT){
+      const pt = info.pos.t || t || now;
+      if(pt ? (!n.posT || pt >= n.posT) : n.lat == null){
         n.lat = info.pos.lat; n.lon = info.pos.lon; n.alt = info.pos.alt; n.posT = pt;
         const last = n.track[n.track.length - 1];
-        if(!last || last[2] < pt && (Math.abs(last[0] - n.lat) > 0.00003 || Math.abs(last[1] - n.lon) > 0.00003 || pt - last[2] > 120000)){
+        if(pt && (!last || last[2] < pt) && (!last || Math.abs(last[0] - n.lat) > 0.00003 || Math.abs(last[1] - n.lon) > 0.00003 || pt - last[2] > 120000)){
           n.track.push([n.lat, n.lon, pt]);
           if(n.track.length > TRACK_MAX) n.track.splice(0, n.track.length - TRACK_MAX);
         }
@@ -3254,7 +3261,14 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
     asked: {}          // packet id -> {num, at}
   };
   // Inside claude.ai the page is sandboxed and Bluetooth is blocked; it needs the hosted link.
-  const btOK = !inClaude && !!(navigator.bluetooth && navigator.bluetooth.requestDevice);
+  // Checked when needed, not once at load: on iPhone the Safari extension (iOSWebBLE / beacio) may add Bluetooth a moment later.
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const hasBT = () => !inClaude && !!(navigator.bluetooth && navigator.bluetooth.requestDevice);
+  const noBTText = () => inClaude ? "Bluetooth is blocked inside Claude. Use the hosted link."
+    : isIOS ? "On iPhone, install the free iOSWebBLE app, turn on its Safari extension, and open this link in Safari."
+    : "Bluetooth needs Chrome on Android, opened from the hosted link.";
+  let btSeen = hasBT();
+  setTimeout(() => { if(!btSeen && hasBT()){ btSeen = true; meshChanged(true); } }, 1500);
   // Every GATT read and write goes through one queue: the radio can only do one at a time.
   function gatt(fn){ const p = radio.q.then(fn); radio.q = p.catch(() => {}); return p; }
   function send(bytes){
@@ -3286,7 +3300,7 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
     }
     if(PB.has(m, 4)){                                   // a node from the radio's list
       const ni = readNodeInfo(PB.bytes(m, 4));
-      learn(mesh.nodes, ni.num, ni, ni.heard);
+      learn(mesh.nodes, ni.num, ni, ni.heard, true);
       if(ni.num === radio.num && !ni.heard) nodeOf(mesh.nodes, ni.num).heard = now;
       radio.synced++;
     }
@@ -3401,7 +3415,7 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
     }
   }
   async function chooseRadio(){
-    if(!btOK){ toast("Bluetooth needs Chrome on Android, opened from the hosted link."); return; }
+    if(!hasBT()){ toast(noBTText()); return; }
     let device;
     try{ device = await navigator.bluetooth.requestDevice({filters: [{services: [BLE.service]}]}); }
     catch(e){
@@ -3424,7 +3438,7 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
   }
   // On opening, reconnect to the radio used last time if Chrome still allows it, without the device list.
   async function autoConnect(){
-    if(!btOK || !mesh.devId || !navigator.bluetooth.getDevices) return;
+    if(!hasBT() || !mesh.devId || !navigator.bluetooth.getDevices) return;
     let devs = [];
     try{ devs = await navigator.bluetooth.getDevices(); }catch(e){ return; }
     const d = devs.find(x => x.id === mesh.devId);
@@ -3453,7 +3467,46 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
     const was = radio.state;
     radio.state = s;
     if(s === "live"){ mesh.lastLive = Date.now(); meshSave(); if(was === "syncing") refit(); }
+    meshGeoSync();
     meshChanged(true);
+  }
+
+  /* ---- share the phone's GPS with the radio, like the Meshtastic app does ----
+     A radio without its own GPS takes its position from the phone, then shares it with the mesh on its own schedule. */
+  let shareLoc = true, meshGeoWatch = null, geo = {fix: null, acc: null, sent: 0, sentAt: null, err: null};
+  try{ shareLoc = localStorage.getItem("flightDayLog.shareLoc") !== "0"; }catch(e){}
+  function meshGeoSync(){
+    const want = shareLoc && radio.state === "live" && !meshDemo && "geolocation" in navigator && !inClaude;
+    if(want && meshGeoWatch == null){
+      geo.err = null;
+      meshGeoWatch = navigator.geolocation.watchPosition(onMeshGeo, e => {
+        geo.err = e && e.code === 1 ? "Location not allowed for this site" : "No GPS fix yet";
+        meshChanged();
+      }, {enableHighAccuracy: true, maximumAge: 15000, timeout: 60000});
+    } else if(!want && meshGeoWatch != null){
+      navigator.geolocation.clearWatch(meshGeoWatch); meshGeoWatch = null;
+    }
+  }
+  function onMeshGeo(p){
+    const c = p.coords, now = Date.now();
+    geo.err = null; geo.acc = c.accuracy;
+    const fix = {lat: c.latitude, lon: c.longitude, alt: c.altitude != null ? Math.round(c.altitude) : null};
+    const moved = geo.fix ? distM(geo.fix, fix) : Infinity;
+    geo.fix = fix;
+    if(radio.num != null) learn(mesh.nodes, radio.num, {pos: {lat: fix.lat, lon: fix.lon, alt: fix.alt, t: now}}, now);
+    // to the radio at most once a minute, or sooner after moving 50 m
+    if(radio.state === "live" && radio.num != null && (!geo.sentAt || now - geo.sentAt > 60000 || moved > 50)){
+      const pos = PB.write([[1, "f", Math.round(fix.lat * 1e7) | 0], [2, "f", Math.round(fix.lon * 1e7) | 0],
+        [3, "v", fix.alt != null && fix.alt >= 0 ? fix.alt : undefined], [4, "f", Math.floor(now / 1000)]]);
+      geo.sentAt = now;
+      send(toRadio.packet({from: radio.num, to: radio.num, port: PORT.POSITION, payload: pos, id: packetId()})).then(() => { geo.sent++; meshChanged(); }, () => {});
+    }
+    meshChanged();
+  }
+  function distM(a, b){
+    const R = 6371000, r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLon = (b.lon - a.lon) * r;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
   }
   // Asks a node for a fresh position and battery reading. A node answers at most every few minutes.
   async function askNode(num){
@@ -3547,11 +3600,11 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
     const s = meshStore(), me = meshMine(), now = Date.now();
     const all = Object.values(s).filter(n => n.num !== 0xffffffff);
     all.sort((a, b) => (b.num === me) - (a.num === me) || (b.heard || 0) - (a.heard || 0));
-    const recent = all.filter(n => n.num === me || n.num === meshSel || (n.heard && now - n.heard < DAY_MS));
+    const recent = all.filter(n => n.num === me || n.num === meshSel || (!n.heard || now - n.heard < DAY_MS));
     return {all, shown: meshOld ? all : recent, hidden: all.length - recent.length};
   }
   function ago(t){
-    if(!t) return "never";
+    if(!t) return "time unknown";
     const s = Math.max(0, (Date.now() - t) / 1000);
     if(s < 45) return "just now";
     if(s < 3600) return Math.round(s / 60) + " min ago";
@@ -3559,7 +3612,7 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
     const d = new Date(t);
     return d.toLocaleDateString("en-ZA", {weekday: "short", day: "numeric", month: "short"}) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
   }
-  const ageClass = t => !t ? "old" : Date.now() - t > 2 * 3600e3 ? "old" : Date.now() - t > 15 * 60e3 ? "stale" : "";
+  const ageClass = t => !t ? "stale" : Date.now() - t > 2 * 3600e3 ? "old" : Date.now() - t > 15 * 60e3 ? "stale" : "";
   function batText(n){
     if(n.bat == null) return {t: "–", c: ""};
     if(n.bat > 100) return {t: "Plugged in", c: "pl"};
@@ -3605,14 +3658,19 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
     } else {
       const had = Object.keys(mesh.nodes).length > 0;
       head = '<span class="ms-dot"></span><span class="ms-t">Not connected</span>' + (had && mesh.lastLive ? '<span class="ms-s">Last data ' + ago(mesh.lastLive) + '</span>' : "");
-      if(!btOK) body = '<p class="ms-note">Bluetooth needs Chrome on Android, opened from the hosted link.</p>';
-      acts = (btOK ? '<button class="btn primary" type="button" id="b-mesh-on" data-act="' + (had && radio.device ? "mesh-reconnect" : "mesh-connect") + '">' + (had && radio.device ? "Reconnect" : "Connect radio") + '</button>' : "") +
+      const bt = hasBT(); btSeen = btSeen || bt;
+      if(!bt) body = '<p class="ms-note">' + esc(noBTText()) + '</p>';
+      acts = (bt ? '<button class="btn primary" type="button" id="b-mesh-on" data-act="' + (had && radio.device ? "mesh-reconnect" : "mesh-connect") + '">' + (had && radio.device ? "Reconnect" : "Connect radio") + '</button>' : "") +
         '<button class="link" type="button" id="b-mesh-demo" data-act="mesh-demo">Try demo</button>';
     }
     const live = meshDemo || radio.state === "live";
     const wake = live && navigator.wakeLock ? '<button class="ms-wake" type="button" role="switch" aria-checked="' + wakeOn + '" id="b-mesh-wake" data-act="mesh-wake"><span>Keep screen on</span><span class="sw" aria-hidden="true"></span></button>' : "";
+    const gsub = !shareLoc ? "Off" : geo.err ? geo.err : !geo.fix ? "Waiting for a GPS fix…" :
+      "±" + Math.round(geo.acc) + " m" + (geo.sentAt ? " · sent to radio " + ago(geo.sentAt) : "");
+    const share = radio.state === "live" && !meshDemo && "geolocation" in navigator ? '<button class="ms-wake ms-share" type="button" role="switch" aria-checked="' + shareLoc + '" id="b-mesh-loc" data-act="mesh-loc">' +
+      '<span class="ms-sw-t"><span>Share phone location</span><small class="' + (geo.err && shareLoc ? "err" : "") + '">' + esc(gsub) + '</small></span><span class="sw" aria-hidden="true"></span></button>' : "";
     return '<div class="card ms' + (radio.state === "lost" && !meshDemo ? " lost" : "") + '"><div class="ms-head">' + head + '</div>' + body + batRow +
-      '<div class="ms-acts">' + acts + '</div>' + wake + '</div>';
+      '<div class="ms-acts">' + acts + '</div>' + share + wake + '</div>';
   }
   function meshListHTML(){
     const {shown, hidden} = meshNodes(), me = meshMine(), store = meshStore(), my = store[String(me)];
@@ -3620,7 +3678,7 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
     const rows = shown.map(n => {
       const b = batText(n), isMe = n.num === me, sel = n.num === meshSel;
       const d = !isMe && my ? distTo(my, n) : null;
-      const sub = [isMe ? "Your radio" : null, d, "heard " + ago(n.heard)].filter(Boolean).join(" · ");
+      const sub = [isMe ? "Your radio" : null, d, n.heard ? "heard " + ago(n.heard) : "last heard unknown"].filter(Boolean).join(" · ");
       let det = "";
       if(sel){
         const hasPos = n.lat != null;
@@ -3687,7 +3745,7 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
     const g = $("#m-nodes"), tg = $("#m-track"); if(!g) return;
     const px = map.px || 0.01, me = meshMine(), store = meshStore();
     let dots = "", lbl = "";
-    const list = Object.values(store).filter(n => n.lat != null && (n.num === me || n.num === meshSel || meshOld || (n.heard && Date.now() - n.heard < DAY_MS)));
+    const list = Object.values(store).filter(n => n.lat != null && (n.num === me || n.num === meshSel || meshOld || (!n.heard || Date.now() - n.heard < DAY_MS)));
     list.sort((a, b) => (a.num === meshSel) - (b.num === meshSel));
     for(const n of list){
       const q = map.P([n.lon, n.lat]), sel = n.num === meshSel, isMe = n.num === me;
@@ -3710,7 +3768,7 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
   // The area the mesh map should show: your blocks plus nodes heard today, ignoring far-away ones.
   function meshFitPoints(){
     const me = meshMine();
-    return Object.values(meshStore()).filter(n => n.lat != null && (n.num === me || n.num === meshSel || (n.heard && Date.now() - n.heard < DAY_MS))).map(n => [n.lon, n.lat]);
+    return Object.values(meshStore()).filter(n => n.lat != null && (n.num === me || n.num === meshSel || (!n.heard || Date.now() - n.heard < DAY_MS))).map(n => [n.lon, n.lat]);
   }
   // Without a KML the map is centred on the nodes themselves (same scale as the blocks map).
   function nodeProj(){
@@ -3756,6 +3814,7 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
       if(n && n.lat != null) copyText(n.lat.toFixed(6) + ", " + n.lon.toFixed(6)).then(ok => toast(ok ? "Coordinates copied" : n.lat.toFixed(6) + ", " + n.lon.toFixed(6)));
     }
     else if(act === "mesh-old"){ meshOld = !meshOld; meshChanged(true); }
+    else if(act === "mesh-loc"){ shareLoc = !shareLoc; try{ localStorage.setItem("flightDayLog.shareLoc", shareLoc ? "1" : "0"); }catch(e){} meshGeoSync(); meshChanged(true); }
     else if(act === "mesh-wake"){ wakeOn = !wakeOn; try{ localStorage.setItem("flightDayLog.wake", wakeOn ? "1" : "0"); }catch(e){} applyWake(); meshChanged(true); }
     else return false;
     return true;
