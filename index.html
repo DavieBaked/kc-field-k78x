@@ -3830,7 +3830,7 @@ button.mn-age:disabled{opacity:1}
         '<span class="mn-badge ' + ageClass(n.heard) + '">' + esc(nodeShort(n)) + '</span>' +
         '<span class="mn-txt"><span class="mn-name">' + (starred(n) && !sel ? '<span class="mn-star" aria-label="Starred">★</span>' : "") + '<span class="mn-nm">' + esc(nodeName(n)) + '</span>' + (sel ? penBtn(n) : "") + '</span>' +
         '<span class="mn-sub ' + ageClass(n.heard) + '">' + esc(sub) + '</span></span>' +
-        '<span class="mn-end">' + (sel ? starBtn(n) : "") + '<span class="mn-bat ' + b.c + '">' + batIcon(n) + '<span>' + b.t + '</span></span></span></div>' +
+        '<span class="mn-end">' + (sel ? starBtn(n) : '<span class="mn-bat ' + b.c + '">' + batIcon(n) + '<span>' + b.t + '</span></span>') + '</span></div>' +
         (sel ? detailHTML(n, isMe) : "") + '</li>';
     }).join("");
     return '<ul class="card mn-list">' + rows + '</ul>' +
