@@ -245,7 +245,8 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 .map-key i{display:inline-block;width:12px;height:12px;margin-right:5px;border-radius:3px;vertical-align:-2px;font-style:normal}
 .map-key .k-todo{background:color-mix(in srgb,var(--map-todo) 25%,transparent);border:1.5px solid var(--map-todo)}
 .map-key .k-done{background:color-mix(in srgb,var(--accent) 60%,transparent);border:1.5px solid var(--accent)}
-.map-key .k-launch{width:auto;height:auto;color:var(--ink);font-size:calc(11px * var(--fs))}
+.map-key .k-launch{color:var(--ink);border-radius:0}
+.map-key .k-launch svg{display:block;width:12px;height:12px}
 .map-hint{margin:-8px 0 0;font-size:calc(13px * var(--fs));color:var(--muted)}
 .m-bg{fill:var(--map-bg)}
 .m-sec{fill:none;stroke:var(--muted);stroke-width:1.2;stroke-dasharray:6 5;vector-effect:non-scaling-stroke;opacity:.7}
@@ -2291,7 +2292,7 @@ body.has-tabs #main > *{align-content:start}
           '<div class="map-ctl">' +
             '<button type="button" class="map-btn" id="b-mapfit" data-act="map-fit" aria-label="Show all blocks and lock the map"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
           '</div>' +
-          '<div class="map-key"><span><i class="k-todo"></i>To fly</span><span><i class="k-done"></i>Flown</span><span><i class="k-launch">▲</i>Launch</span></div>' +
+          '<div class="map-key"><span><i class="k-todo"></i>To fly</span><span><i class="k-done"></i>Flown</span><span><i class="k-launch"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1 11.5 11H.5z" fill="currentColor"/></svg></i>Launch</span></div>' +
           '</div>';
       } else {
         html += '<p class="kml-day">Load the KML again to see the map for this day.</p>';
