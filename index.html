@@ -537,7 +537,6 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
 .m-node-lbl.sel{fill:var(--accent)}
 .m-track{fill:none;stroke:var(--accent);stroke-width:2;stroke-dasharray:5 4;vector-effect:non-scaling-stroke;opacity:.8}
 /* Disconnected stays red in every theme, even black and white ones: it matters. */
-.ms-share{min-height:56px;margin-bottom:-12px}
 .ms-sw-t{display:grid;text-align:left;gap:1px}
 .ms-sw-t small{color:var(--muted);font-size:calc(12px * var(--fs))}
 .ms-sw-t small.err{color:#e5484d}
@@ -3661,47 +3660,9 @@ button.mn-age:disabled{opacity:1}
     const was = radio.state;
     radio.state = s;
     if(s === "live"){ mesh.lastLive = Date.now(); meshSave(); if(was === "syncing") refit(); }
-    meshGeoSync();
     meshChanged(true);
   }
 
-  /* ---- share the phone's GPS with the radio, like the Meshtastic app does ----
-     A radio without its own GPS takes its position from the phone, then shares it with the mesh on its own schedule. */
-  let shareLoc = true, meshGeoWatch = null, geo = {fix: null, acc: null, sent: 0, sentAt: null, err: null};
-  try{ shareLoc = localStorage.getItem("flightDayLog.shareLoc") !== "0"; }catch(e){}
-  function meshGeoSync(){
-    const want = shareLoc && radio.state === "live" && !meshDemo && "geolocation" in navigator && !inClaude;
-    if(want && meshGeoWatch == null){
-      geo.err = null;
-      meshGeoWatch = navigator.geolocation.watchPosition(onMeshGeo, e => {
-        geo.err = e && e.code === 1 ? "Location not allowed for this site" : "No GPS fix yet";
-        meshChanged();
-      }, {enableHighAccuracy: true, maximumAge: 15000, timeout: 60000});
-    } else if(!want && meshGeoWatch != null){
-      navigator.geolocation.clearWatch(meshGeoWatch); meshGeoWatch = null;
-    }
-  }
-  function onMeshGeo(p){
-    const c = p.coords, now = Date.now();
-    geo.err = null; geo.acc = c.accuracy;
-    const fix = {lat: c.latitude, lon: c.longitude, alt: c.altitude != null ? Math.round(c.altitude) : null};
-    const moved = geo.fix ? distM(geo.fix, fix) : Infinity;
-    geo.fix = fix;
-    if(radio.num != null) learn(mesh.nodes, radio.num, {pos: {lat: fix.lat, lon: fix.lon, alt: fix.alt, t: now}}, now);
-    // to the radio at most once a minute, or sooner after moving 50 m
-    if(radio.state === "live" && radio.num != null && (!geo.sentAt || now - geo.sentAt > 60000 || moved > 50)){
-      const pos = PB.write([[1, "f", Math.round(fix.lat * 1e7) | 0], [2, "f", Math.round(fix.lon * 1e7) | 0],
-        [3, "v", fix.alt != null && fix.alt >= 0 ? fix.alt : undefined], [4, "f", Math.floor(now / 1000)]]);
-      geo.sentAt = now;
-      send(toRadio.packet({from: radio.num, to: radio.num, port: PORT.POSITION, payload: pos, id: packetId()})).then(() => { geo.sent++; meshChanged(); }, () => {});
-    }
-    meshChanged();
-  }
-  function distM(a, b){
-    const R = 6371000, r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLon = (b.lon - a.lon) * r;
-    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(h));
-  }
   // Asks one node for a fresh position ("pos") or battery reading ("bat"). Each is one small packet plus the reply.
   // Nodes throttle their answers, so asking again within a few minutes may get nothing.
   async function askNode(num, kind){
@@ -3895,12 +3856,8 @@ button.mn-age:disabled{opacity:1}
     }
     const live = meshDemo || radio.state === "live";
     const wake = live && navigator.wakeLock ? '<button class="ms-wake" type="button" role="switch" aria-checked="' + wakeOn + '" id="b-mesh-wake" data-act="mesh-wake"><span>Keep screen on</span><span class="sw" aria-hidden="true"></span></button>' : "";
-    const gsub = !shareLoc ? "Off" : geo.err ? geo.err : !geo.fix ? "Waiting for a GPS fix…" :
-      "±" + Math.round(geo.acc) + " m" + (geo.sentAt ? " · sent to radio " + ago(geo.sentAt) : "");
-    const share = radio.state === "live" && !meshDemo && "geolocation" in navigator ? '<button class="ms-wake ms-share" type="button" role="switch" aria-checked="' + shareLoc + '" id="b-mesh-loc" data-act="mesh-loc">' +
-      '<span class="ms-sw-t"><span>Share phone location</span><small class="' + (geo.err && shareLoc ? "err" : "") + '">' + esc(gsub) + '</small></span><span class="sw" aria-hidden="true"></span></button>' : "";
     return '<div class="card ms' + (radio.state === "lost" && !meshDemo ? " lost" : "") + '"><div class="ms-head">' + head + '</div>' + body + meBox +
-      '<div class="ms-acts">' + acts + '</div>' + share + wake + '</div>';
+      '<div class="ms-acts">' + acts + '</div>' + wake + '</div>';
   }
   const ICON = {
     refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -4275,7 +4232,6 @@ button.mn-age:disabled{opacity:1}
     else if(act === "mesh-rename"){ meshRename = num; const li = $("#mesh-list"), st = $("#mesh-status"); if(li) li.innerHTML = meshListHTML(); if(st) st.innerHTML = meshStatusHTML(); const i = document.getElementById("nick-" + num); if(i){ i.focus(); i.select(); fitAboveKeyboard(i.closest(".mn, .ms-me") || i); } }
     else if(act === "mesh-rename-cancel"){ meshRename = null; meshChanged(true); }
     else if(act === "mesh-old"){ meshOld = !meshOld; meshChanged(true); }
-    else if(act === "mesh-loc"){ shareLoc = !shareLoc; try{ localStorage.setItem("flightDayLog.shareLoc", shareLoc ? "1" : "0"); }catch(e){} meshGeoSync(); meshChanged(true); }
     else if(act === "mesh-wake"){ wakeOn = !wakeOn; try{ localStorage.setItem("flightDayLog.wake", wakeOn ? "1" : "0"); }catch(e){} applyWake(); meshChanged(true); }
     else return false;
     return true;
