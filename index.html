@@ -568,6 +568,26 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
 .ms-bat-l b{color:var(--ink);font-weight:600}
 .ms-chev{margin-left:auto;color:var(--muted);font-size:calc(14px * var(--fs))}
 .ms .mn-det{margin:-12px -16px 0}
+/* minimal node rows: icons instead of words */
+.mn-row{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.mn-row:focus-visible,.ms-me:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.mn-name{display:flex;align-items:center;gap:4px;min-width:0}
+.mn-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mn-end{display:flex;align-items:center;gap:6px}
+.mn-ic{flex:none;display:grid;place-items:center;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:none;color:var(--muted)}
+.mn-ic svg{width:18px;height:18px}
+.mn-ic:active{background:color-mix(in srgb,var(--ink) 10%,transparent)}
+.mn-ic:disabled{opacity:.35}
+.mn-pen{width:30px;height:30px;margin:-6px 0}
+.mn-pen svg{width:16px;height:16px}
+.mn-starbtn.on{color:var(--accent)}
+.mn-lab{display:flex;align-items:center;gap:2px;color:var(--muted)}
+.mn-sym{display:grid;place-items:center;width:24px}
+.mn-sym svg{width:18px;height:18px}
+.mn-ask[data-wait] svg{animation:mnSpin 1.2s linear infinite}
+.mn-det{padding-top:2px}
+.ms-me{cursor:pointer}
+.ms-bat-l{display:flex;align-items:center;gap:4px}
 </style>
 </head>
 <body>
@@ -3694,9 +3714,9 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
     const me = meshStore()[String(meshMine())];
     const myBat = me && me.bat != null ? batText(me) : null;
     const meSel = me && meshSel === me.num;
-    const batRow = me ? '<button class="ms-bat ms-me' + (myBat && myBat.c ? " " + myBat.c : "") + (meSel ? " sel" : "") + '" type="button" id="mn-' + me.num + '" data-act="mesh-sel" data-num="' + me.num + '" aria-expanded="' + meSel + '">' + batIcon(me) +
-      '<span class="ms-bat-n">' + (myBat ? myBat.t : "–") + '</span><span class="ms-bat-l"><b>' + esc(nodeName(me)) + '</b>' + (me.batT && radio.state !== "live" && !meshDemo ? " · " + ago(me.batT) : "") + '</span>' +
-      '<span class="ms-chev" aria-hidden="true">' + (meSel ? "▴" : "▾") + '</span></button>' + (meSel ? detailHTML(me, true) : "") : "";
+    const batRow = me ? '<div class="ms-bat ms-me' + (myBat && myBat.c ? " " + myBat.c : "") + (meSel ? " sel" : "") + '" role="button" tabindex="0" id="mn-' + me.num + '" data-act="mesh-sel" data-num="' + me.num + '" aria-expanded="' + meSel + '">' + batIcon(me) +
+      '<span class="ms-bat-n">' + (myBat ? myBat.t : "–") + '</span><span class="ms-bat-l"><b>' + esc(nodeName(me)) + '</b>' + (meSel ? penBtn(me) : "") + (me.batT && radio.state !== "live" && !meshDemo ? '<span> · ' + ago(me.batT) + '</span>' : "") + '</span>' +
+      '<span class="ms-chev" aria-hidden="true">' + (meSel ? "▴" : "▾") + '</span></div>' + (meSel ? detailHTML(me, true) : "") : "";
     let head = "", body = "", acts = "";
     if(meshDemo){
       head = '<span class="ms-dot demo"></span><span class="ms-t">Demo</span><span class="ms-s">Made-up nodes, nothing real</span>';
@@ -3730,42 +3750,42 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
     return '<div class="card ms' + (radio.state === "lost" && !meshDemo ? " lost" : "") + '"><div class="ms-head">' + head + '</div>' + body + batRow +
       '<div class="ms-acts">' + acts + '</div>' + share + wake + '</div>';
   }
-  const REFRESH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  // One detail row: label, value, and under it how old it is. Other nodes get an Ask button.
-  function kvRow(n, isMe, kind, label, value, t){
+  const ICON = {
+    refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    pin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0113 0c0 4.8-6.5 11-6.5 11z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.3" fill="currentColor"/></svg>',
+    bat: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="17" height="10" rx="2.2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="20.5" y="10" width="2" height="4" rx="1" fill="currentColor"/><rect x="5" y="9.5" width="8" height="5" rx="1" fill="currentColor"/></svg>',
+    star: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
+    starOn: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z" fill="currentColor" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
+    pen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>'
+  };
+  // One detail line: symbol (and refresh button for other nodes) on the left, the value and its age on the right.
+  function kvRow(n, isMe, kind, value, t){
     const asked = askedRecently(n, kind);
     const age = asked ? "asked " + ago(n.asked[kind]) + ", waiting…" : t ? ago(t) : "";
     const fresh = !asked && t && Date.now() - t < 15000;
     const can = meshDemo || radio.state === "live";
-    return '<div class="mn-kv"><span>' + label + '</span><b class="mn-val">' + value + (age ? '<small class="' + (asked ? "" : fresh ? "fresh" : ageClass(t)) + '">' + (fresh ? "updated " : "") + age + '</small>' : "") + '</b></div>';
+    const what = kind === "pos" ? "position" : "battery";
+    return '<div class="mn-kv"><span class="mn-lab"><span class="mn-sym" title="' + (kind === "pos" ? "Position" : "Battery") + '">' + (kind === "pos" ? ICON.pin : ICON.bat) + '</span>' +
+      (isMe ? "" : '<button class="mn-ic mn-ask" type="button" id="b-ask-' + kind + '-' + n.num + '" data-act="mesh-ask" data-kind="' + kind + '" data-num="' + n.num + '"' + (can && !asked ? "" : " disabled") +
+        (asked ? ' data-wait="1"' : "") + ' aria-label="Ask for a fresh ' + what + '" title="Ask for a fresh ' + what + '">' + ICON.refresh + '</button>') + '</span>' +
+      '<b class="mn-val">' + value + (age ? '<small class="' + (asked ? "" : fresh ? "fresh" : ageClass(t)) + '">' + (fresh ? "updated " : "") + age + '</small>' : "") + '</b></div>';
   }
-  // Refresh buttons sit with the other actions, below the values.
-  function askBtn(n, kind){
-    const asked = askedRecently(n, kind), can = meshDemo || radio.state === "live";
-    return '<button class="btn mn-ask" type="button" id="b-ask-' + kind + '-' + n.num + '" data-act="mesh-ask" data-kind="' + kind + '" data-num="' + n.num + '"' + (can && !asked ? "" : " disabled") +
-      (asked ? ' data-wait="1"' : "") + '>' + REFRESH + '<span>' + (kind === "pos" ? "Position" : "Battery") + '</span></button>';
-  }
-  // The opened part of a node: position (tap to copy), battery, rename, star.
+  const penBtn = n => '<button class="mn-ic mn-pen" type="button" id="b-nick-' + n.num + '" data-act="mesh-rename" data-num="' + n.num + '" aria-label="Rename" title="Rename">' + ICON.pen + '</button>';
+  const starBtn = n => '<button class="mn-ic mn-starbtn' + (starred(n) ? " on" : "") + '" type="button" id="b-star-' + n.num + '" data-act="mesh-star" data-num="' + n.num + '" aria-pressed="' + starred(n) + '" aria-label="Star" title="Star">' + (starred(n) ? ICON.starOn : ICON.star) + '</button>';
+  // The opened part of a node: position (tap to copy) and battery, each with its refresh button.
   function detailHTML(n, isMe){
-    const b = batText(n);
-      const hasPos = n.lat != null;
-      const coords = hasPos ? n.lat.toFixed(5) + ", " + n.lon.toFixed(5) : "";
-      const renaming = meshRename === n.num;
-      return '<div class="mn-det">' +
-        (renaming
-          ? '<form class="mn-rename" data-num="' + n.num + '"><input id="nick-' + n.num + '" type="text" maxlength="30" autocomplete="off" placeholder="' + esc(radioName(n)) + '" value="' + esc(nickOf(n)) + '" aria-label="Nickname">' +
-            '<div class="mn-rename-b"><button class="btn" type="button" data-act="mesh-rename-cancel">Cancel</button><button class="btn primary" type="submit">Save</button></div></form>' +
-            '<p class="mn-asked">Only on this phone. The radio keeps its name' + (n.long ? ' “' + esc(n.long) + '”' : "") + '. Leave empty to use it again.</p>'
-          : "") +
-        (nickOf(n) && !renaming ? '<div class="mn-kv"><span>Radio name</span><b>' + esc(radioName(n)) + '</b></div>' : "") +
-        kvRow(n, isMe, "pos", "Position", hasPos ? '<button class="mn-coords mono" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '" aria-label="Copy coordinates">' + coords + '</button>' : "none yet", hasPos ? n.posT : null) +
-        (isMe ? "" : kvRow(n, isMe, "bat", "Battery", n.bat == null ? (isMe ? "unknown" : "not shared yet") : b.t + (n.volt ? " · " + n.volt.toFixed(2) + " V" : ""), n.bat == null ? null : n.batT)) +
-        (n.hops != null && !isMe ? '<div class="mn-kv"><span>Hops</span><b>' + (n.hops === 0 ? "direct" : n.hops) + (n.snr != null && n.hops === 0 ? " · SNR " + n.snr.toFixed(1) : "") + '</b></div>' : "") +
-        (isMe ? "" : '<div class="mn-acts">' + askBtn(n, "pos") + askBtn(n, "bat") + '</div>') +
-        '<div class="mn-acts">' +
-          (isMe ? "" : '<button class="btn" type="button" id="b-star-' + n.num + '" data-act="mesh-star" data-num="' + n.num + '" aria-pressed="' + starred(n) + '">' + (starred(n) ? "★ Starred" : "☆ Star") + '</button>') +
-          (renaming ? "" : '<button class="btn" type="button" id="b-nick-' + n.num + '" data-act="mesh-rename" data-num="' + n.num + '">Rename</button>') +
-        '</div></div>';
+    const b = batText(n), hasPos = n.lat != null, renaming = meshRename === n.num;
+    const coords = hasPos ? n.lat.toFixed(5) + ", " + n.lon.toFixed(5) : "";
+    return '<div class="mn-det">' +
+      (renaming
+        ? '<form class="mn-rename" data-num="' + n.num + '"><input id="nick-' + n.num + '" type="text" maxlength="30" autocomplete="off" placeholder="' + esc(radioName(n)) + '" value="' + esc(nickOf(n)) + '" aria-label="Nickname">' +
+          '<div class="mn-rename-b"><button class="btn" type="button" data-act="mesh-rename-cancel">Cancel</button><button class="btn primary" type="submit">Save</button></div></form>' +
+          '<p class="mn-asked">Only on this phone. The radio keeps its name' + (n.long ? ' “' + esc(n.long) + '”' : "") + '. Leave empty to use it again.</p>'
+        : "") +
+      kvRow(n, isMe, "pos", hasPos ? '<button class="mn-coords mono" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '" aria-label="Copy coordinates">' + coords + '</button>' : "none yet", hasPos ? n.posT : null) +
+      (isMe ? "" : kvRow(n, isMe, "bat", n.bat == null ? "not shared yet" : b.t + (n.volt ? " · " + n.volt.toFixed(2) + " V" : ""), n.bat == null ? null : n.batT)) +
+      (nickOf(n) && !renaming ? '<p class="mn-asked">Radio name: ' + esc(radioName(n)) + '</p>' : "") +
+      '</div>';
   }
   function meshListHTML(){
     const {shown, hidden} = meshNodes(), me = meshMine(), store = meshStore(), my = store[String(me)];
@@ -3773,12 +3793,14 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
     const rows = shown.map(n => {
       const b = batText(n), isMe = n.num === me, sel = n.num === meshSel;
       const d = !isMe && my ? distTo(my, n) : null;
-      const sub = [isMe ? "Your radio" : null, d, n.heard ? "heard " + ago(n.heard) : "last heard unknown"].filter(Boolean).join(" · ");
-      const det = sel ? detailHTML(n, isMe) : "";
-      return '<li class="mn' + (sel ? " sel" : "") + '"><button class="mn-row" type="button" id="mn-' + n.num + '" data-act="mesh-sel" data-num="' + n.num + '" aria-expanded="' + sel + '">' +
-        '<span class="mn-badge' + (isMe ? " me" : "") + ' ' + ageClass(n.heard) + '">' + esc(nodeShort(n)) + '</span>' +
-        '<span class="mn-txt"><span class="mn-name">' + (starred(n) ? '<span class="mn-star" aria-label="Starred">★</span>' : "") + esc(nodeName(n)) + '</span><span class="mn-sub ' + ageClass(n.heard) + '">' + esc(sub) + '</span></span>' +
-        '<span class="mn-bat ' + b.c + '">' + batIcon(n) + '<span>' + b.t + '</span></span></button>' + det + '</li>';
+      const hops = sel && n.hops != null ? (n.hops === 0 ? "direct" : n.hops + (n.hops === 1 ? " hop" : " hops")) : null;
+      const sub = [d, n.heard ? "heard " + ago(n.heard) : "last heard unknown", hops].filter(Boolean).join(" · ");
+      return '<li class="mn' + (sel ? " sel" : "") + '"><div class="mn-row" role="button" tabindex="0" id="mn-' + n.num + '" data-act="mesh-sel" data-num="' + n.num + '" aria-expanded="' + sel + '">' +
+        '<span class="mn-badge ' + ageClass(n.heard) + '">' + esc(nodeShort(n)) + '</span>' +
+        '<span class="mn-txt"><span class="mn-name">' + (starred(n) && !sel ? '<span class="mn-star" aria-label="Starred">★</span>' : "") + '<span class="mn-nm">' + esc(nodeName(n)) + '</span>' + (sel ? penBtn(n) : "") + '</span>' +
+        '<span class="mn-sub ' + ageClass(n.heard) + '">' + esc(sub) + '</span></span>' +
+        '<span class="mn-end">' + (sel ? starBtn(n) : "") + '<span class="mn-bat ' + b.c + '">' + batIcon(n) + '<span>' + b.t + '</span></span></span></div>' +
+        (sel ? detailHTML(n, isMe) : "") + '</li>';
     }).join("");
     return '<ul class="card mn-list">' + rows + '</ul>' +
       (hidden ? '<button class="link mn-more" type="button" id="b-mesh-old" data-act="mesh-old">' + (meshOld ? "Hide nodes not heard today" : "Show " + hidden + " not heard today") + '</button>' : "");
@@ -3909,6 +3931,9 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
     if(v) mesh.nick[num] = v; else delete mesh.nick[num];
     meshRename = null; meshSaveNow(); meshChanged(true); drawNodes();
     toast(v ? "Renamed to " + v : "Using the radio’s name again");
+  });
+  document.addEventListener("keydown", e => {
+    if((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches('[role="button"][data-act^="mesh-"]')){ e.preventDefault(); e.target.click(); }
   });
   autoConnect();
 
