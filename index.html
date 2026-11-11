@@ -658,21 +658,6 @@ button.mn-age:disabled{opacity:1}
 .mx-off-k{position:absolute;z-index:1;left:4px;top:3px;width:44px;height:44px;border-radius:50%;background:#e5484d;color:#fff;display:flex;align-items:center;justify-content:center;cursor:grab;touch-action:none}
 .mx-off-k svg{width:22px;height:22px}
 @media (prefers-reduced-motion: reduce){.mn-row.holding,.ms-me.holding{animation-duration:2s}}
-/* USB setup */
-.usb-card{max-height:calc(100vh - 32px);overflow:auto}
-.uk-list{display:grid;gap:6px}
-.uk-t{width:100%;display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:none;color:var(--ink);font:inherit;text-align:left}
-.uk.on .uk-t{border-color:var(--ink)}
-.uk-box{width:20px;height:20px;border:2px solid var(--line-strong);border-radius:6px;display:flex;align-items:center;justify-content:center}
-.uk.on .uk-box{background:var(--ink);border-color:var(--ink)}
-.uk.on .uk-box::after{content:"";width:9px;height:5px;border:2px solid var(--bg);border-top:0;border-right:0;transform:translateY(-1px) rotate(-45deg)}
-.uk-n{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.uk-k{color:var(--muted);font-size:calc(12px * var(--fs))}
-.uk-add summary,.uk-saved summary{cursor:pointer;color:var(--muted);font-weight:600;font-size:calc(14px * var(--fs));padding:4px 0}
-.uk-form{display:grid;gap:8px;margin-top:8px}
-.uk-form input{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;font-size:16px}
-.uk-s{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:calc(14px * var(--fs))}
-.uk-done{margin:0;padding-left:20px;font-weight:600}
 .mx-card .btn[disabled]{opacity:.45}
 </style>
 </head>
@@ -3345,7 +3330,7 @@ button.mn-age:disabled{opacity:1}
   const MESH_KEY = "flightDayLog.mesh";
   const TRACK_MAX = 400;
   // nick: your own names for nodes, star: nodes kept at the top. Both stay on this phone; the radios are not changed.
-  let mesh = {v: 1, myNum: null, devId: null, devName: "", lastLive: 0, nodes: {}, nick: {}, star: {}, keys: {}};
+  let mesh = {v: 1, myNum: null, devId: null, devName: "", lastLive: 0, nodes: {}, nick: {}, star: {}};
   try{
     const m = JSON.parse(localStorage.getItem(MESH_KEY) || "null");
     if(m && m.nodes && typeof m.nodes === "object") mesh = Object.assign(mesh, m);
@@ -3464,7 +3449,6 @@ button.mn-age:disabled{opacity:1}
       const ni = readNodeInfo(PB.bytes(m, 4));
       learn(mesh.nodes, ni.num, ni, ni.heard, true);
       if(ni.num === radio.num && !ni.heard) nodeOf(mesh.nodes, ni.num).heard = now;
-      if(ni.num === radio.num && ni.user && ni.user.pk) rememberKey(ni.num, ni.user, ni.user.pk);
       radio.synced++;
     }
     if(PB.has(m, 2)) onPacket(readPacket(PB.bytes(m, 2)));
@@ -3886,7 +3870,6 @@ button.mn-age:disabled{opacity:1}
       "±" + Math.round(geo.acc) + " m" + (geo.sentAt ? " · sent to radio " + ago(geo.sentAt) : "");
     const share = radio.state === "live" && !meshDemo && "geolocation" in navigator ? '<button class="ms-wake ms-share" type="button" role="switch" aria-checked="' + shareLoc + '" id="b-mesh-loc" data-act="mesh-loc">' +
       '<span class="ms-sw-t"><span>Share phone location</span><small class="' + (geo.err && shareLoc ? "err" : "") + '">' + esc(gsub) + '</small></span><span class="sw" aria-hidden="true"></span></button>' : "";
-    if(!inClaude && !meshDemo) acts += '<button class="link" type="button" id="b-mesh-usb" data-act="mesh-usb">USB setup</button>';
     return '<div class="card ms' + (radio.state === "lost" && !meshDemo ? " lost" : "") + '"><div class="ms-head">' + head + '</div>' + body + batRow +
       '<div class="ms-acts">' + acts + '</div>' + share + wake + '</div>';
   }
@@ -3966,7 +3949,10 @@ button.mn-age:disabled{opacity:1}
     offNum = num;
     let pop = $("#mx-pop");
     if(!pop){ pop = document.createElement("div"); pop.id = "mx-pop"; pop.className = "mx-pop"; document.body.appendChild(pop);
-      pop.addEventListener("click", e => { if(e.target === pop || e.target.closest("[data-off-cancel]")) closeOff(); }); }
+      pop.addEventListener("click", e => {
+        const ck = e.target.closest("[data-copy-key]");
+        if(ck){ const k = ck.dataset.copyKey; (navigator.clipboard ? navigator.clipboard.writeText(k) : Promise.reject()).then(() => toast("Key copied. Paste it into the other radio’s Admin Key."), () => toast(k)); return; }
+        if(e.target === pop || e.target.closest("[data-off-cancel]")) closeOff(); }); }
     pop.innerHTML = '<div class="mx-card" role="dialog" aria-modal="true" aria-labelledby="mx-pop-t">' +
       '<p class="mx-t" id="mx-pop-t">Are you locked in?</p>' +
       '<p class="mx-who">Turning off ' + esc(mine ? radioName(n) : nodeName(n)) + '</p>' +
@@ -3974,6 +3960,7 @@ button.mn-age:disabled{opacity:1}
       '<div class="mx-off" id="mx-off"><span class="mx-off-t" aria-hidden="true">I’m locked in</span><span class="mx-off-t lit" aria-hidden="true">I’m locked in</span>' +
       '<span class="mx-off-k" id="mx-off-k" role="slider" tabindex="0" aria-label="Slide to turn off: I’m locked in" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' + POWER + '</span></div>' +
       '<p class="mx-st" id="mx-st" aria-live="polite"></p>' +
+      (n.pk ? '<button class="btn" type="button" data-copy-key="' + esc(n.pk) + '">Copy ' + (mine ? "my radio’s" : "its") + ' public key</button>' : "") +
       '<button class="btn" type="button" data-off-cancel>Cancel</button></div>';
     pop.hidden = false;
     setTimeout(() => { const k = $("#mx-off-k"); if(k) k.focus({preventScroll: true}); }, 30);
@@ -4073,203 +4060,6 @@ button.mn-age:disabled{opacity:1}
     }
     offRetry(name + " rejected the session. Try again.");
   }
-  /* ---------- USB setup: plug a radio into the phone and choose whose keys can command it ----------
-     A radio only takes remote orders (like turning off) from radios whose public key is in its
-     Security → Admin Key list (up to 3). That list can only be changed first-hand, so this does it
-     over a USB cable (Web Serial), for radios that have Bluetooth off. */
-  const b64 = u8 => btoa(String.fromCharCode.apply(null, Array.from(u8)));
-  const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
-  const keyTag = k => k.slice(0, 6);
-  function rememberKey(num, user, pk){
-    if(!pk || pk.length !== 32) return;
-    const k = b64(pk);
-    mesh.keys = mesh.keys || {};
-    const old = mesh.keys[k];
-    mesh.keys[k] = {num, name: (user && user.long) || (old && old.name) || "", short: (user && user.short) || (old && old.short) || "", t: Date.now(), pasted: old ? old.pasted : false};
-    meshSave();
-  }
-  function keyName(k){
-    const e = mesh.keys && mesh.keys[k];
-    if(!e){ const h = Object.values(mesh.nodes).find(n => n.pk === k); return h ? nodeName(h) + " · " + hex(h.num).slice(-4) : "Unknown radio"; }
-    const n = e.num != null && mesh.nodes[String(e.num)];
-    return (n ? nodeName(n) : e.name || "Pasted key") + (e.num != null ? " · " + hex(e.num).slice(-4) : "");
-  }
-  const hasSerial = () => "serial" in navigator && !inClaude;
-  const usb = {state: "idle", port: null, writer: null, buf: new Uint8Array(0), num: null, user: null, sec: null, admin: [], pick: null, err: "", nonce: 0};
-  const usbFrame = b => { const f = new Uint8Array(b.length + 4); f[0] = 0x94; f[1] = 0xc3; f[2] = b.length >> 8; f[3] = b.length & 255; f.set(b, 4); return f; };
-  const usbSend = b => usb.writer.write(usbFrame(b));
-  // copy a message's raw bytes, leaving out one field (keeps every other setting exactly as the radio sent it)
-  function pbWithout(bytes, field){
-    const out = []; let i = 0;
-    const rv = () => { let v = 0, s = 0, x; do { x = bytes[i++]; v += (x & 127) * Math.pow(2, s); s += 7; } while(x & 128); return v; };
-    while(i < bytes.length){
-      const st = i, tag = rv(), f = Math.floor(tag / 8), w = tag & 7;
-      if(w === 0) rv(); else if(w === 1) i += 8; else if(w === 5) i += 4; else if(w === 2){ const l = rv(); i += l; } else break;
-      if(f !== field) out.push(...bytes.slice(st, i));
-    }
-    return Uint8Array.from(out);
-  }
-  async function usbConnect(port){
-    try{
-      if(!port) port = await navigator.serial.requestPort();
-    }catch(e){ return; }                                         // chooser closed
-    await usbClose();
-    Object.assign(usb, {state: "reading", port, num: null, user: null, sec: null, admin: [], pick: null, err: "", buf: new Uint8Array(0)});
-    usbRender();
-    try{
-      await port.open({baudRate: 115200});
-      usb.writer = port.writable.getWriter();
-      usbRead(port);
-      await usb.writer.write(new Uint8Array(32).fill(0xc3));      // wakes the radio's serial API
-      await sleepMs(120);
-      usb.nonce = 1 + Math.floor(Math.random() * 1e9);
-      await usbSend(toRadio.wantConfig(usb.nonce));
-      setTimeout(() => { if(usb.port === port && usb.state === "reading") usbFail("No answer from it. Is it a Meshtastic radio, and is the cable a data cable?"); }, 15000);
-    }catch(e){ usbFail("Couldn’t open it. Unplug, plug it back in and try again."); }
-  }
-  async function usbRead(port){
-    let reader;
-    try{
-      reader = port.readable.getReader(); usb.reader = reader;
-      for(;;){
-        const {value, done} = await reader.read(); if(done) break;
-        const b = new Uint8Array(usb.buf.length + value.length); b.set(usb.buf); b.set(value, usb.buf.length); usb.buf = b;
-        for(;;){                                                   // frames are 94 C3 len-hi len-lo + bytes; anything else is log text
-          let i = 0; while(i + 1 < usb.buf.length && !(usb.buf[i] === 0x94 && usb.buf[i + 1] === 0xc3)) i++;
-          if(i) usb.buf = usb.buf.slice(i);
-          if(usb.buf.length < 4) break;
-          const len = (usb.buf[2] << 8) | usb.buf[3];
-          if(len > 512){ usb.buf = usb.buf.slice(1); continue; }
-          if(usb.buf.length < 4 + len) break;
-          const f = usb.buf.slice(4, 4 + len); usb.buf = usb.buf.slice(4 + len);
-          try{ usbFrom(f); }catch(e){}
-        }
-      }
-    }catch(e){
-      if(usb.port === port && usb.state !== "idle") usbFail(usb.state === "saved" ? "" : "The radio was unplugged.");
-    }finally{ try{ reader && reader.releaseLock(); }catch(e){} }
-  }
-  function usbFrom(bytes){
-    const m = PB.read(bytes);
-    if(PB.has(m, 3)) usb.num = PB.u32(PB.read(PB.bytes(m, 3)), 1);
-    if(PB.has(m, 4)){ const ni = readNodeInfo(PB.bytes(m, 4)); if(ni.num === usb.num && ni.user) usb.user = ni.user; }
-    if(PB.has(m, 5)){                                             // config: the security part has the admin keys
-      const c = PB.read(PB.bytes(m, 5));
-      if(PB.has(c, 8)){ const raw = PB.bytes(c, 8), s = PB.read(raw); usb.sec = raw; usb.admin = (s[3] || []).filter(k => k.length === 32).map(b64);
-        const pk = PB.bytes(s, 1); if(pk && !usb.user) usb.user = {pk}; else if(pk && usb.user && !usb.user.pk) usb.user.pk = pk; }
-    }
-    if(PB.has(m, 7) && PB.u32(m, 7) === usb.nonce && usb.state === "reading"){
-      if(!usb.sec){ usbFail("This radio’s firmware is too old for admin keys. It needs 2.5 or newer."); return; }
-      if(usb.user && usb.user.pk) rememberKey(usb.num, usb.user, usb.user.pk);
-      usb.pick = usb.admin.slice();
-      usb.state = "ready"; usbRender();
-    }
-  }
-  function usbFail(msg){ usb.state = msg ? "error" : "idle"; usb.err = msg; usbRender(); usbClose(); }
-  async function usbClose(){
-    const p = usb.port; usb.port = null;
-    try{ usb.reader && await usb.reader.cancel(); }catch(e){}
-    try{ usb.writer && usb.writer.releaseLock(); }catch(e){}
-    usb.reader = usb.writer = null;
-    try{ p && await p.close(); }catch(e){}
-  }
-  async function usbSave(){
-    const keys = usb.pick.slice(0, 3);
-    let sec = pbWithout(usb.sec, 3);
-    const add = PB.write(keys.map(k => [3, "b", unb64(k)]));
-    const s2 = new Uint8Array(sec.length + add.length); s2.set(sec); s2.set(add, sec.length);
-    usb.state = "saving"; usbRender();
-    try{
-      // AdminMessage.set_config (34) → Config.security (8), sent to the plugged-in radio itself
-      await usbSend(toRadio.packet({from: usb.num, to: usb.num, port: PORT.ADMIN, payload: PB.write([[34, "m", [[8, "b", s2]]]]), id: packetId(), wantAck: true}));
-      usb.admin = keys.slice(); usb.sec = s2; usb.state = "saved"; usbRender();
-    }catch(e){ usbFail("Couldn’t write to the radio. Check the cable and try again."); }
-  }
-  if("serial" in navigator){
-    navigator.serial.addEventListener("connect", e => { if($("#usb-pop") && !$("#usb-pop").hidden && (usb.state === "idle" || usb.state === "error")) usbConnect(e.target); });
-    navigator.serial.addEventListener("disconnect", e => { if(usb.port && e.target === usb.port && usb.state !== "saved") usbFail("The radio was unplugged."); });
-  }
-  function openUsb(){
-    if(!hasSerial()){
-      const v = (navigator.userAgent.match(/Chrome\/(\d+)/) || [])[1];
-      toast(isIOS ? "iPhones can’t use USB radios. Use an Android phone with Chrome."
-        : "This browser can’t use USB" + (v ? " (Chrome " + v + ")" : "") + ". Update Chrome from the Play Store, then reopen the app.");
-      return;
-    }
-    let pop = $("#usb-pop");
-    if(!pop){
-      pop = document.createElement("div"); pop.id = "usb-pop"; pop.className = "mx-pop"; document.body.appendChild(pop);
-      pop.addEventListener("click", e => {
-        const t = e.target.closest("[data-usb]");
-        if(e.target === pop || (t && t.dataset.usb === "close")){ pop.hidden = true; usbClose(); usb.state = "idle"; return; }
-        if(!t) return;
-        const a = t.dataset.usb;
-        if(a === "pick") usbConnect();
-        else if(a === "save") usbSave();
-        else if(a === "again"){ usb.state = "idle"; usbRender(); }
-        else if(a === "toggle"){
-          const k = t.dataset.k, i = usb.pick.indexOf(k);
-          if(i >= 0) usb.pick.splice(i, 1); else if(usb.pick.length < 3) usb.pick.push(k); else toast("A radio holds up to 3 keys. Untick one first.");
-          usbRender();
-        }
-        else if(a === "copy"){ const k = t.dataset.k; (navigator.clipboard ? navigator.clipboard.writeText(k) : Promise.reject()).then(() => toast("Key copied"), () => toast(k)); }
-        else if(a === "forget"){ delete mesh.keys[t.dataset.k]; meshSaveNow(); usbRender(); }
-      });
-      pop.addEventListener("submit", e => {
-        e.preventDefault();
-        const f = e.target, k = f.k.value.trim(), nm = f.nm.value.trim();
-        let ok = false; try{ ok = unb64(k).length === 32; }catch(err){}
-        if(!ok){ toast("That isn’t a public key. It’s 44 characters ending in =."); return; }
-        mesh.keys = mesh.keys || {};
-        mesh.keys[k] = Object.assign(mesh.keys[k] || {}, {name: nm || "Pasted key", t: Date.now(), pasted: true});
-        meshSaveNow(); usbRender();
-      });
-    }
-    pop.hidden = false;
-    usbRender();
-    // a radio that was allowed before connects by itself when plugged in
-    if(usb.state === "idle" && navigator.serial.getPorts) navigator.serial.getPorts().then(ps => { if(ps.length && usb.state === "idle") usbConnect(ps[0]); }).catch(() => {});
-  }
-  function usbKeyRow(k, on, mine){
-    return '<div class="uk' + (on ? " on" : "") + '"><button class="uk-t" type="button" role="checkbox" aria-checked="' + on + '" data-usb="toggle" data-k="' + esc(k) + '">' +
-      '<span class="uk-box" aria-hidden="true"></span><span class="uk-n">' + esc(keyName(k)) + '</span><span class="uk-k mono">' + esc(keyTag(k)) + '</span></button>' +
-      (mine ? "" : "") + '</div>';
-  }
-  function usbRender(){
-    const pop = $("#usb-pop"); if(!pop || pop.hidden) return;
-    let body = "";
-    const plugged = usb.user ? (usb.user.long || "This radio") + (usb.num != null ? " · " + hex(usb.num).slice(-4) : "") + (usb.user.hw ? " · " + hwName({hw: usb.user.hw}) : "") : "";
-    if(usb.state === "idle" || usb.state === "error"){
-      body = (usb.err ? '<p class="mx-st bad">' + esc(usb.err) + '</p>' : "") +
-        '<p class="mx-s">Plug the radio into this phone with a USB data cable, then choose it.</p>' +
-        '<button class="btn primary" type="button" data-usb="pick">Choose radio</button>';
-    } else if(usb.state === "reading"){
-      body = '<p class="mx-s">Reading the radio…</p>';
-    } else if(usb.state === "ready" || usb.state === "saving"){
-      const own = usb.user && usb.user.pk ? b64(usb.user.pk) : "";
-      const known = Object.keys(mesh.keys || {}).filter(k => k !== own);
-      const all = usb.pick.concat(usb.admin, known).filter((k, i, a) => a.indexOf(k) === i && k !== own);
-      const changed = usb.pick.slice().sort().join() !== usb.admin.slice().sort().join();
-      body = '<p class="mx-who">' + esc(plugged) + '</p>' +
-        '<p class="mx-s">Radios ticked here can turn it off and change its settings over the mesh. Up to 3.</p>' +
-        (all.length ? '<div class="uk-list">' + all.map(k => usbKeyRow(k, usb.pick.includes(k))).join("") + '</div>'
-          : '<p class="mx-s">No keys saved yet. Connect to your own radio by Bluetooth once and its key is saved here, or paste one below.</p>') +
-        '<details class="uk-add"><summary>Paste a key</summary><form class="uk-form"><input name="nm" type="text" maxlength="30" placeholder="Whose radio" autocomplete="off"><input name="k" type="text" class="mono" placeholder="Public key (44 characters)" autocomplete="off" spellcheck="false"><button class="btn" type="submit">Add</button></form></details>' +
-        '<button class="btn primary" type="button" data-usb="save"' + (changed && usb.state === "ready" ? "" : " disabled") + '>' + (usb.state === "saving" ? "Saving…" : "Save to radio") + '</button>';
-    } else if(usb.state === "saved"){
-      body = '<p class="mx-who">' + esc(plugged) + '</p>' +
-        '<p class="mx-s">Saved. It may restart. ' + (usb.admin.length ? "These radios can now turn it off:" : "No radio can command it remotely now.") + '</p>' +
-        (usb.admin.length ? '<ul class="uk-done">' + usb.admin.map(k => '<li>' + esc(keyName(k)) + '</li>').join("") + '</ul>' : "") +
-        '<button class="btn" type="button" data-usb="again">Set up another radio</button>';
-    }
-    // saved keys, to copy or forget
-    const ks = Object.keys(mesh.keys || {});
-    const saved = ks.length ? '<details class="uk-saved"><summary>Saved keys (' + ks.length + ')</summary>' + ks.map(k =>
-      '<div class="uk-s"><span class="uk-n">' + esc(keyName(k)) + '</span><button class="link" type="button" data-usb="copy" data-k="' + esc(k) + '">Copy</button><button class="link" type="button" data-usb="forget" data-k="' + esc(k) + '">Forget</button></div>').join("") + '</details>' : "";
-    pop.innerHTML = '<div class="mx-card usb-card" role="dialog" aria-modal="true" aria-labelledby="usb-t"><p class="mx-t" id="usb-t">USB setup</p>' + body + saved +
-      '<button class="btn" type="button" data-usb="close">Close</button></div>';
-  }
-
   function detailHTML(n, isMe){
     const b = batText(n), hasPos = n.lat != null, renaming = meshRename === n.num;
     const coords = hasPos ? n.lat.toFixed(5) + ", " + n.lon.toFixed(5) : "";
@@ -4424,7 +4214,6 @@ button.mn-age:disabled{opacity:1}
     else if(act === "mesh-demo-stop"){ stopDemo(); refit(); }
     else if(act === "mesh-sel"){ meshSel = meshSel === num ? null : num; meshChanged(true); if(meshSel != null) setTimeout(() => meshFocus(num), 30); }
     else if(act === "mesh-ask") askNode(num, b.dataset.kind === "pos" ? "pos" : "bat");
-    else if(act === "mesh-usb"){ openUsb(); }
     else if(act === "mesh-copylink"){
       const u = location.href.split("#")[0];
       (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast("Link copied. Paste it into Safari."), () => toast(u));
