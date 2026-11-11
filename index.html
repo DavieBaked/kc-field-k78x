@@ -3950,19 +3950,15 @@ button.mn-age:disabled{opacity:1}
     const w = Math.min(v.w, 18), h = v.h * w / v.w;      // map units are about 111 m: no wider than ~2 km
     setVB({x: q[0] - w / 2, y: q[1] - h / 2, w, h});
   }
-  // While renaming, scroll so the whole node sits between the top bar and the keyboard.
+  // While renaming, scroll the node to the top of the screen, just under the top bar.
   function fitAboveKeyboard(el){
     const vv = window.visualViewport;
     const fit = () => {
       if(!el.isConnected) return;
-      const top = (vv ? vv.offsetTop : 0), h = vv ? vv.height : innerHeight;
-      const bar = $(".top"), tb = $(".tabbar");
+      const top = vv ? vv.offsetTop : 0;
+      const bar = $(".top");
       const lo = Math.max(top, bar ? bar.getBoundingClientRect().bottom : 0) + 8;
-      let hi = top + h - 8;
-      if(tb && tb.getClientRects().length){ const t = tb.getBoundingClientRect().top; if(t > lo && t < hi) hi = t - 8; }
-      const rc = el.getBoundingClientRect();
-      let dy = rc.bottom > hi ? rc.bottom - hi : 0;
-      if(rc.top - dy < lo) dy = rc.top - lo;
+      const dy = el.getBoundingClientRect().top - lo;     // node right under the top bar
       if(Math.abs(dy) > 2) window.scrollBy({top: dy, behavior: reduceMotion ? "auto" : "smooth"});
     };
     fit();
