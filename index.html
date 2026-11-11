@@ -3887,7 +3887,7 @@ button.mn-age:disabled{opacity:1}
         '<button class="link" type="button" id="b-mesh-new" data-act="mesh-connect">Other radio</button>';
     } else {
       const had = Object.keys(mesh.nodes).length > 0;
-      head = '<span class="ms-dot"></span><span class="ms-t">Not connected</span>' + (had && mesh.lastLive ? '<span class="ms-s">Last data ' + ago(mesh.lastLive) + '</span>' : "");
+      head = '<span class="ms-dot"></span><span class="ms-t">Not connected</span>';
       const bt = hasBT(); btSeen = btSeen || bt;
       if(!bt) body = noBTHTML();
       acts = (bt ? '<button class="btn primary" type="button" id="b-mesh-on" data-act="' + (had && radio.device ? "mesh-reconnect" : "mesh-connect") + '">' + (had && radio.device ? "Reconnect" : "Connect radio") + '</button>' : "") +
