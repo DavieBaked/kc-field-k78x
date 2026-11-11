@@ -617,6 +617,11 @@ button.mn-age:disabled{opacity:1}
 .mn-sym .bat-i{width:22px;height:12px}
 .mn-line.low .mn-sym,.mn-line.low .mn-v{color:var(--danger)}
 .mn-ident{text-align:right}
+/* position, battery and hops values all in the same type */
+.mn-v,.mn-v .mn-coords,.mn-v .mn-volt{font-family:inherit;font-size:calc(15px * var(--fs));font-weight:600;letter-spacing:0;font-variant-numeric:tabular-nums}
+.mn-v .mn-volt{color:var(--muted)}
+.mn-v{display:flex;align-items:center;gap:6px}
+.mn-plug{width:14px;height:14px;flex:none}
 </style>
 </head>
 <body>
@@ -3724,12 +3729,14 @@ button.mn-age:disabled{opacity:1}
     if(n.bat > 100) return {t: "", c: "pl"};
     return {t: n.bat + "%", c: n.bat <= 20 ? "low" : ""};
   }
-  function batIcon(n){
+  // plugged in: battery drawn full, with a plug beside it
+  const PLUG = '<svg class="mn-plug" viewBox="0 0 24 24" aria-label="Plugged in"><path d="M9 2v5M15 2v5M6 7h12v4a6 6 0 01-12 0V7zM12 17v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function batIcon(n, noPlug){
     const lvl = n.bat == null ? 0 : n.bat > 100 ? 1 : n.bat / 100;
     return '<svg class="bat-i" viewBox="0 0 26 14" aria-hidden="true"><rect x="1" y="1.5" width="21" height="11" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/>' +
       '<rect x="23.2" y="5" width="2" height="4" rx="1" fill="currentColor"/>' +
-      (n.bat > 100 ? '<path d="M13.2 2.6L7.8 7.6h3.6l-1.6 3.8 5.4-5h-3.6z" fill="currentColor"/>'
-        : '<rect x="3" y="3.5" width="' + (17 * lvl).toFixed(1) + '" height="7" rx="1.2" fill="currentColor"/>') + '</svg>';
+      '<rect x="3" y="3.5" width="' + (17 * lvl).toFixed(1) + '" height="7" rx="1.2" fill="currentColor"/></svg>' +
+      (n.bat > 100 && !noPlug ? PLUG : "");
   }
   function distTo(a, b){
     if(a.lat == null || b.lat == null) return null;
@@ -3804,7 +3811,7 @@ button.mn-age:disabled{opacity:1}
     const age = asked ? "asking…" : (fresh ? "updated " : "") + (t ? ago(t) : "unknown");
     const cls = asked ? "" : fresh ? "fresh" : ageClass(t);
     const bc = kind === "bat" ? batText(n).c : "";
-    return '<div class="mn-line' + (bc ? " " + bc : "") + '"><span class="mn-sym" title="' + (kind === "pos" ? "Position" : "Battery") + '">' + (kind === "pos" ? ICON.pin : batIcon(n)) + '</span>' +
+    return '<div class="mn-line' + (bc ? " " + bc : "") + '"><span class="mn-sym" title="' + (kind === "pos" ? "Position" : "Battery") + '">' + (kind === "pos" ? ICON.pin : batIcon(n, true)) + '</span>' +
       '<span class="mn-v">' + value + '</span>' +
       (isMe ? '<span class="mn-age ' + cls + '">' + age + '</span>'
         : '<button class="mn-age ' + cls + '" type="button" id="b-ask-' + kind + '-' + n.num + '" data-act="mesh-ask" data-kind="' + kind + '" data-num="' + n.num + '"' + (can && !asked ? "" : " disabled") +
@@ -3824,7 +3831,7 @@ button.mn-age:disabled{opacity:1}
           '<p class="mn-asked">Only on this phone. The radio keeps its name' + (n.long ? ' “' + esc(n.long) + '”' : "") + '. Leave empty to use it again.</p>'
         : "") +
       kvRow(n, isMe, "pos", hasPos ? '<button class="mn-coords mono" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '" aria-label="Copy coordinates">' + coords + '</button>' : '<span class="mn-none">none yet</span>', hasPos ? n.posT : null) +
-      (isMe ? "" : kvRow(n, isMe, "bat", n.bat == null ? '<span class="mn-none">not shared yet</span>' : [b.t, n.volt ? '<span class="mn-volt">' + n.volt.toFixed(2) + " V</span>" : ""].filter(Boolean).join('<span class="mn-volt"> · </span>'), n.bat == null ? null : n.batT)) +
+      (isMe ? "" : kvRow(n, isMe, "bat", n.bat == null ? '<span class="mn-none">not shared yet</span>' : [b.t, n.bat > 100 ? PLUG : "", n.volt ? '<span class="mn-volt">' + n.volt.toFixed(2) + " V</span>" : ""].filter(Boolean).join('<span class="mn-volt"> · </span>'), n.bat == null ? null : n.batT)) +
       (isMe ? "" : '<div class="mn-line"><span class="mn-sym" title="Hops">' + BUNNY + '</span><span class="mn-v">' + (n.hops != null ? n.hops : "–") + '</span><span class="mn-age mn-type">' + linkType(n) + '</span></div>') +
       (renaming ? "" : '<p class="mn-ident">' + esc([n.long, hex(n.num).slice(-4), hwName(n)].filter(Boolean).join(" · ")) + '</p>') +
       '</div>';
@@ -3941,7 +3948,6 @@ button.mn-age:disabled{opacity:1}
     const q = map.P([n.lon, n.lat]), v = map.vb || map.fit;
     const w = Math.min(v.w, 18), h = v.h * w / v.w;      // map units are about 111 m: no wider than ~2 km
     setVB({x: q[0] - w / 2, y: q[1] - h / 2, w, h});
-    const mw = $("#map-wrap"); if(mw) mw.scrollIntoView({behavior: reduceMotion ? "auto" : "smooth", block: "center"});
   }
   function meshAct(act, b){
     const num = b.dataset.num != null ? Number(b.dataset.num) : null;
