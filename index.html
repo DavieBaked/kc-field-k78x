@@ -3816,7 +3816,7 @@ button.mn-age:disabled{opacity:1}
       kvRow(n, isMe, "pos", hasPos ? '<button class="mn-coords mono" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '" aria-label="Copy coordinates">' + coords + '</button>' : '<span class="mn-none">none yet</span>', hasPos ? n.posT : null) +
       (isMe ? "" : kvRow(n, isMe, "bat", n.bat == null ? '<span class="mn-none">not shared yet</span>' : b.t + (n.volt ? '<span class="mn-volt"> · ' + n.volt.toFixed(2) + " V</span>" : ""), n.bat == null ? null : n.batT)) +
       (isMe ? "" : '<div class="mn-line"><span class="mn-sym" title="Hops">' + BUNNY + '</span><span class="mn-v">' + (n.hops != null ? n.hops : "–") + '</span><span class="mn-age mn-type">' + esc(hwName(n)) + '</span></div>') +
-      (renaming ? "" : '<p class="mn-ident">' + esc([n.long, n.short || hex(n.num).slice(-4)].filter(Boolean).join(" · ")) + '</p>') +
+      (renaming ? "" : '<p class="mn-ident">' + esc([n.long, hex(n.num).slice(-4)].filter(Boolean).join(" · ")) + '</p>') +
       '</div>';
   }
   function meshListHTML(){
