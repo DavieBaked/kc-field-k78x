@@ -622,6 +622,7 @@ button.mn-age:disabled{opacity:1}
 .mn-v .mn-volt{color:var(--muted)}
 .mn-v{display:flex;align-items:center;gap:6px}
 .mn-plug{width:14px;height:14px;flex:none}
+.mesh-tab:has(.mn-rename){padding-bottom:70vh}
 </style>
 </head>
 <body>
@@ -3808,7 +3809,7 @@ button.mn-age:disabled{opacity:1}
     const fresh = !asked && t && Date.now() - t < 15000;
     const can = meshDemo || radio.state === "live";
     const what = kind === "pos" ? "position" : "battery";
-    const age = asked ? "asking…" : (fresh ? "updated " : "") + (t ? ago(t) : "unknown");
+    const age = asked ? "asking…" : (t ? ago(t) : "unknown");
     const cls = asked ? "" : fresh ? "fresh" : ageClass(t);
     const bc = kind === "bat" ? batText(n).c : "";
     return '<div class="mn-line' + (bc ? " " + bc : "") + '"><span class="mn-sym" title="' + (kind === "pos" ? "Position" : "Battery") + '">' + (kind === "pos" ? ICON.pin : batIcon(n, true)) + '</span>' +
@@ -3949,6 +3950,25 @@ button.mn-age:disabled{opacity:1}
     const w = Math.min(v.w, 18), h = v.h * w / v.w;      // map units are about 111 m: no wider than ~2 km
     setVB({x: q[0] - w / 2, y: q[1] - h / 2, w, h});
   }
+  // While renaming, scroll so the whole node sits between the top bar and the keyboard.
+  function fitAboveKeyboard(el){
+    const vv = window.visualViewport;
+    const fit = () => {
+      if(!el.isConnected) return;
+      const top = (vv ? vv.offsetTop : 0), h = vv ? vv.height : innerHeight;
+      const bar = $(".top"), tb = $(".tabbar");
+      const lo = Math.max(top, bar ? bar.getBoundingClientRect().bottom : 0) + 8;
+      let hi = top + h - 8;
+      if(tb && tb.getClientRects().length){ const t = tb.getBoundingClientRect().top; if(t > lo && t < hi) hi = t - 8; }
+      const rc = el.getBoundingClientRect();
+      let dy = rc.bottom > hi ? rc.bottom - hi : 0;
+      if(rc.top - dy < lo) dy = rc.top - lo;
+      if(Math.abs(dy) > 2) window.scrollBy({top: dy, behavior: reduceMotion ? "auto" : "smooth"});
+    };
+    fit();
+    if(vv){ const on = () => { vv.removeEventListener("resize", on); setTimeout(fit, 60); }; vv.addEventListener("resize", on); setTimeout(() => vv.removeEventListener("resize", on), 1500); }
+    setTimeout(fit, 400);
+  }
   function meshAct(act, b){
     const num = b.dataset.num != null ? Number(b.dataset.num) : null;
     if(act === "mesh-connect") chooseRadio();
@@ -3963,7 +3983,7 @@ button.mn-age:disabled{opacity:1}
       if(n && n.lat != null) copyText(n.lat.toFixed(6) + ", " + n.lon.toFixed(6)).then(ok => toast(ok ? "Coordinates copied" : n.lat.toFixed(6) + ", " + n.lon.toFixed(6)));
     }
     else if(act === "mesh-star"){ const k = String(num); if(mesh.star[k]) delete mesh.star[k]; else mesh.star[k] = true; meshSaveNow(); meshChanged(true); drawNodes(); }
-    else if(act === "mesh-rename"){ meshRename = num; const li = $("#mesh-list"), st = $("#mesh-status"); if(li) li.innerHTML = meshListHTML(); if(st) st.innerHTML = meshStatusHTML(); const i = document.getElementById("nick-" + num); if(i){ i.focus(); i.select(); } }
+    else if(act === "mesh-rename"){ meshRename = num; const li = $("#mesh-list"), st = $("#mesh-status"); if(li) li.innerHTML = meshListHTML(); if(st) st.innerHTML = meshStatusHTML(); const i = document.getElementById("nick-" + num); if(i){ i.focus(); i.select(); fitAboveKeyboard(i.closest(".mn, .ms-me") || i); } }
     else if(act === "mesh-rename-cancel"){ meshRename = null; meshChanged(true); }
     else if(act === "mesh-old"){ meshOld = !meshOld; meshChanged(true); }
     else if(act === "mesh-loc"){ shareLoc = !shareLoc; try{ localStorage.setItem("flightDayLog.shareLoc", shareLoc ? "1" : "0"); }catch(e){} meshGeoSync(); meshChanged(true); }
