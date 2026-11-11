@@ -681,6 +681,7 @@ button.mn-age:disabled{opacity:1}
 /* the question fades as the button slides, and "I'm locked in" lights up behind it */
 .mx-off-t.ask{opacity:calc(.6 - var(--off) * 1.2)}
 .mx-off-t.lit{clip-path:none;opacity:clamp(0, calc(var(--off) * 1.6 - .3), 1)}
+.sum-prev{margin:2px 0 4px}
 </style>
 </head>
 <body>
@@ -1327,6 +1328,7 @@ button.mn-age:disabled{opacity:1}
       parts.push(summaryTab(day));
       $("#main").innerHTML = parts.join("");
       autosize($("#f-notes"));
+      summaryPreview(day);
       return;
     }
     if(dayTab === "blocks"){
@@ -4133,7 +4135,16 @@ button.mn-age:disabled{opacity:1}
     const bs = blockStats(day);
     const head = day.kml ? '<div class="blk-head"><div class="blk-tot"><span class="blk-big">' + bs.done + "/" + bs.total + '</span> <span>blocks flown</span></div>' +
       '<div class="blk-ha">' + fmtHa(bs.doneHa) + " of " + fmtHa(bs.totalHa) + ' ha</div></div>' : "";
-    return '<div class="blk-tab sum-tab">' + head + (cut >= 0 ? h.slice(cut) : "");
+    const prev = '<img class="sum-img sum-prev" id="sum-prev" alt="The picture that will be shared: the day’s blocks, flown ones marked" hidden>';
+    return '<div class="blk-tab sum-tab">' + head + prev + (cut >= 0 ? h.slice(cut) : "");
+  }
+  // The same picture Share sends, drawn into the Summary tab.
+  function summaryPreview(day){
+    const im = $("#sum-prev"); if(!im) return;
+    let cv = null; try{ cv = mapImage(day); }catch(e){}
+    if(!cv){ im.remove(); return; }
+    im.src = cv.toDataURL("image/png"); im.hidden = false;
+    const hd = $(".sum-tab .blk-head"); if(hd) hd.remove();   // the picture already says how many were flown
   }
   // Redraws the parts that change, without rebuilding the map.
   let meshRaf = 0, meshLast = 0;
