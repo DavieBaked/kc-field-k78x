@@ -519,7 +519,7 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
 .mn-bat.pl{color:var(--muted);font-weight:500}
 .mn-det{display:grid;gap:8px;padding:4px 16px 16px;background:color-mix(in srgb,var(--accent) 8%,transparent)}
 .mn-kv{display:flex;justify-content:space-between;gap:12px;font-size:calc(14px * var(--fs))}
-.mn-kv span{color:var(--muted)}
+.mn-kv > span{color:var(--muted)}
 .mn-kv b{font-weight:600;text-align:right}
 .mn-kv b.stale{color:var(--map-todo)}
 .mn-kv b.old{color:var(--danger)}
@@ -542,10 +542,14 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
 .ms-sw-t small{color:var(--muted);font-size:calc(12px * var(--fs))}
 .ms-sw-t small.err{color:#e5484d}
 body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))}
-.mn-pos{display:grid;justify-items:end;gap:1px}
-.mn-pos small{font-weight:500;color:var(--muted);font-size:calc(12px * var(--fs))}
-.mn-pos small.stale{color:var(--map-todo)}
-.mn-pos small.old{color:var(--danger)}
+/* detail rows: label | value with its age underneath | Ask */
+.mn-det .mn-kv{align-items:center}
+.mn-val{display:grid;justify-items:end;gap:1px;margin-left:auto;min-width:0}
+.mn-val small{font-weight:500;color:var(--muted);font-size:calc(12px * var(--fs))}
+.mn-val small.stale{color:var(--map-todo)}
+.mn-val small.old{color:var(--danger)}
+.mn-ask{flex:none;min-height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--accent);background:none;color:var(--accent);font-size:calc(13px * var(--fs));font-weight:600}
+.mn-ask:disabled{opacity:.4;border-color:var(--line-strong);color:var(--muted)}
 </style>
 </head>
 <body>
@@ -3328,12 +3332,12 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
     const t = pk.rx || Date.now();
     const hops = pk.hopStart && pk.hopStart >= pk.hopLimit ? pk.hopStart - pk.hopLimit : null;
     const base = {ch: pk.ch, hops: pk.from === radio.num ? 0 : hops, snr: pk.from === radio.num ? null : pk.snr};
-    if(pk.port === PORT.POSITION){ const pos = readPosition(pk.payload); learn(mesh.nodes, pk.from, Object.assign(base, {pos}), t); answered(pk.from); }
+    if(pk.port === PORT.POSITION){ const pos = readPosition(pk.payload); learn(mesh.nodes, pk.from, Object.assign(base, {pos}), t); answered(pk.from, "pos"); }
     else if(pk.port === PORT.NODEINFO){ learn(mesh.nodes, pk.from, Object.assign(base, {user: readUser(pk.payload)}), t); }
     else if(pk.port === PORT.TELEMETRY){
       const tm = PB.read(pk.payload), dmb = PB.bytes(tm, 2);
       learn(mesh.nodes, pk.from, Object.assign(base, dmb ? {metrics: readMetrics(dmb)} : {}), t);
-      if(dmb) answered(pk.from);
+      if(dmb) answered(pk.from, "bat");
     }
     else if(pk.port === PORT.ROUTING){
       const r = PB.read(pk.payload), err = PB.u32(r, 3) || 0, a = radio.asked[pk.requestId];
@@ -3345,9 +3349,9 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
     }
     else learn(mesh.nodes, pk.from, base, t);
   }
-  function answered(num){
-    for(const [id, a] of Object.entries(radio.asked)) if(a.num === num) delete radio.asked[id];
-    const n = mesh.nodes[String(num)]; if(n) n.askedAt = null;
+  function answered(num, kind){
+    for(const [id, a] of Object.entries(radio.asked)) if(a.num === num && a.kind === kind) delete radio.asked[id];
+    const n = mesh.nodes[String(num)]; if(n && n.asked) n.asked[kind] = null;
   }
   // Sets the radio's clock from the phone, as the official apps do, so "last heard" times are right.
   function setRadioClock(){
@@ -3512,22 +3516,30 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
     const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
     return 2 * R * Math.asin(Math.sqrt(h));
   }
-  // Asks a node for a fresh position and battery reading. A node answers at most every few minutes.
-  async function askNode(num){
-    if(meshDemo){ const n = meshDemo.nodes[num]; if(n){ n.askedAt = Date.now(); setTimeout(() => { n.posT = n.heard = n.batT = Date.now(); n.askedAt = null; meshChanged(); }, 2500); } meshChanged(); return; }
+  // Asks one node for a fresh position ("pos") or battery reading ("bat"). Each is one small packet plus the reply.
+  // Nodes throttle their answers, so asking again within a few minutes may get nothing.
+  async function askNode(num, kind){
+    const label = kind === "pos" ? "position" : "battery";
+    if(meshDemo){
+      const n = meshDemo.nodes[num]; if(!n) return;
+      n.asked = Object.assign(n.asked || {}, {[kind]: Date.now()});
+      setTimeout(() => { const t = Date.now(); n.heard = t; if(kind === "pos") n.posT = t; else n.batT = t; n.asked[kind] = null; meshChanged(); }, 2500);
+      meshChanged(); return;
+    }
     if(radio.state !== "live"){ toast("Connect the radio first."); return; }
     const n = mesh.nodes[String(num)]; if(!n) return;
-    const ch = n.ch || 0;
-    const p1 = packetId(), p2 = packetId();
-    radio.asked[p1] = radio.asked[p2] = {num: n.num, at: Date.now()};
-    n.askedAt = Date.now();
+    const id = packetId();
+    radio.asked[id] = {num: n.num, kind, at: Date.now()};
+    n.asked = Object.assign(n.asked || {}, {[kind]: Date.now()});
     try{
-      await send(toRadio.packet({from: radio.num, to: n.num, ch, port: PORT.POSITION, payload: new Uint8Array(0), wantResponse: true, wantAck: true, id: p1}));
-      await send(toRadio.packet({from: radio.num, to: n.num, ch, port: PORT.TELEMETRY, payload: PB.write([[2, "m", []]]), wantResponse: true, wantAck: true, id: p2}));
-      toast("Asked " + nodeName(n) + " for an update");
-    }catch(e){ n.askedAt = null; toast("Couldn’t send. Is the radio still connected?"); }
+      await send(kind === "pos"
+        ? toRadio.packet({from: radio.num, to: n.num, ch: n.ch || 0, port: PORT.POSITION, payload: new Uint8Array(0), wantResponse: true, wantAck: true, id})
+        : toRadio.packet({from: radio.num, to: n.num, ch: n.ch || 0, port: PORT.TELEMETRY, payload: PB.write([[2, "m", []]]), wantResponse: true, wantAck: true, id}));
+      toast("Asked " + nodeName(n) + " for its " + label);
+    }catch(e){ n.asked[kind] = null; toast("Couldn’t send. Is the radio still connected?"); }
     meshChanged();
   }
+  const askedRecently = (n, kind) => n.asked && n.asked[kind] && Date.now() - n.asked[kind] < 5 * 60e3;
 
   /* ---- demo: made-up nodes so the layout can be tried anywhere ---- */
   let meshDemo = null;
@@ -3676,6 +3688,14 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
     return '<div class="card ms' + (radio.state === "lost" && !meshDemo ? " lost" : "") + '"><div class="ms-head">' + head + '</div>' + body + batRow +
       '<div class="ms-acts">' + acts + '</div>' + share + wake + '</div>';
   }
+  // One detail row: label, value, and under it how old it is. Other nodes get an Ask button.
+  function kvRow(n, isMe, kind, label, value, t){
+    const asked = askedRecently(n, kind);
+    const age = asked ? "asked " + ago(n.asked[kind]) + ", waiting…" : t ? ago(t) : "";
+    const can = meshDemo || radio.state === "live";
+    return '<div class="mn-kv"><span>' + label + '</span><b class="mn-val">' + value + (age ? '<small class="' + (asked ? "" : ageClass(t)) + '">' + age + '</small>' : "") + '</b>' +
+      (isMe ? "" : '<button class="mn-ask" type="button" id="b-ask-' + kind + '-' + n.num + '" data-act="mesh-ask" data-kind="' + kind + '" data-num="' + n.num + '"' + (can && !asked ? "" : " disabled") + '>Ask</button>') + '</div>';
+  }
   function meshListHTML(){
     const {shown, hidden} = meshNodes(), me = meshMine(), store = meshStore(), my = store[String(me)];
     if(!shown.length) return '<p class="mesh-empty">' + (radio.state === "syncing" ? "Loading nodes…" : "No nodes yet.") + '</p>';
@@ -3688,14 +3708,10 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
         const hasPos = n.lat != null;
         const coords = hasPos ? n.lat.toFixed(5) + ", " + n.lon.toFixed(5) : "";
         det = '<div class="mn-det">' +
-          '<div class="mn-kv"><span>Position</span>' + (hasPos
-            ? '<b class="mn-pos"><span class="mono">' + coords + '</span><small class="' + ageClass(n.posT) + '">' + ago(n.posT) + '</small></b>'
-            : '<b>none yet</b>') + '</div>' +
-          '<div class="mn-kv"><span>Battery</span><b class="' + ageClass(n.batT) + '">' + (n.bat == null ? (isMe ? "unknown" : "not shared yet") : b.t + (n.volt ? " · " + n.volt.toFixed(2) + " V" : "") + " · " + ago(n.batT)) + '</b></div>' +
+          kvRow(n, isMe, "pos", "Position", hasPos ? '<span class="mono">' + coords + '</span>' : "none yet", hasPos ? n.posT : null) +
+          kvRow(n, isMe, "bat", "Battery", n.bat == null ? (isMe ? "unknown" : "not shared yet") : b.t + (n.volt ? " · " + n.volt.toFixed(2) + " V" : ""), n.bat == null ? null : n.batT) +
           (n.hops != null && !isMe ? '<div class="mn-kv"><span>Hops</span><b>' + (n.hops === 0 ? "direct" : n.hops) + (n.snr != null && n.hops === 0 ? " · SNR " + n.snr.toFixed(1) : "") + '</b></div>' : "") +
-          (n.askedAt ? '<p class="mn-asked">Asked ' + ago(n.askedAt) + '. Waiting for an answer…</p>' : "") +
           '<div class="mn-acts">' +
-            (isMe ? "" : '<button class="btn" type="button" id="b-ask-' + n.num + '" data-act="mesh-ask" data-num="' + n.num + '"' + (meshDemo || radio.state === "live" ? "" : " disabled") + '>Ask for update</button>') +
             (hasPos ? '<button class="btn" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '">Copy coordinates</button>' +
               '<a class="btn" id="b-maps-' + n.num + '" href="https://www.google.com/maps/search/?api=1&query=' + n.lat.toFixed(6) + "," + n.lon.toFixed(6) + '" target="_blank" rel="noopener">Open in Maps</a>' : "") +
           '</div></div>';
@@ -3813,7 +3829,7 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
     else if(act === "mesh-demo"){ startDemo(); refit(); }
     else if(act === "mesh-demo-stop"){ stopDemo(); refit(); }
     else if(act === "mesh-sel"){ meshSel = meshSel === num ? null : num; meshChanged(true); if(meshSel != null) setTimeout(() => meshFocus(num), 30); }
-    else if(act === "mesh-ask") askNode(num);
+    else if(act === "mesh-ask") askNode(num, b.dataset.kind === "pos" ? "pos" : "bat");
     else if(act === "mesh-copy"){
       const n = meshStore()[String(num)];
       if(n && n.lat != null) copyText(n.lat.toFixed(6) + ", " + n.lon.toFixed(6)).then(ok => toast(ok ? "Coordinates copied" : n.lat.toFixed(6) + ", " + n.lon.toFixed(6)));
