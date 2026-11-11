@@ -542,6 +542,10 @@ input[type="date"].in::-webkit-date-and-time-value{text-align:left}
 .ms-sw-t small{color:var(--muted);font-size:calc(12px * var(--fs))}
 .ms-sw-t small.err{color:#e5484d}
 body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))}
+.mn-pos{display:grid;justify-items:end;gap:1px}
+.mn-pos small{font-weight:500;color:var(--muted);font-size:calc(12px * var(--fs))}
+.mn-pos small.stale{color:var(--map-todo)}
+.mn-pos small.old{color:var(--danger)}
 </style>
 </head>
 <body>
@@ -3684,9 +3688,10 @@ body.has-tabs .mesh-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0p
         const hasPos = n.lat != null;
         const coords = hasPos ? n.lat.toFixed(5) + ", " + n.lon.toFixed(5) : "";
         det = '<div class="mn-det">' +
-          '<div class="mn-kv"><span>Position</span><b class="' + ageClass(n.posT) + '">' + (hasPos ? ago(n.posT) : "none yet") + '</b></div>' +
-          '<div class="mn-kv"><span>Battery</span><b class="' + ageClass(n.batT) + '">' + (n.bat == null ? "unknown" : b.t + (n.volt ? " · " + n.volt.toFixed(2) + " V" : "") + " · " + ago(n.batT)) + '</b></div>' +
-          (hasPos ? '<div class="mn-kv"><span>Coordinates</span><b class="mono">' + coords + '</b></div>' : "") +
+          '<div class="mn-kv"><span>Position</span>' + (hasPos
+            ? '<b class="mn-pos"><span class="mono">' + coords + '</span><small class="' + ageClass(n.posT) + '">' + ago(n.posT) + '</small></b>'
+            : '<b>none yet</b>') + '</div>' +
+          '<div class="mn-kv"><span>Battery</span><b class="' + ageClass(n.batT) + '">' + (n.bat == null ? (isMe ? "unknown" : "not shared yet") : b.t + (n.volt ? " · " + n.volt.toFixed(2) + " V" : "") + " · " + ago(n.batT)) + '</b></div>' +
           (n.hops != null && !isMe ? '<div class="mn-kv"><span>Hops</span><b>' + (n.hops === 0 ? "direct" : n.hops) + (n.snr != null && n.hops === 0 ? " · SNR " + n.snr.toFixed(1) : "") + '</b></div>' : "") +
           (n.askedAt ? '<p class="mn-asked">Asked ' + ago(n.askedAt) + '. Waiting for an answer…</p>' : "") +
           '<div class="mn-acts">' +
