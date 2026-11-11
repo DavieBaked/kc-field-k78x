@@ -702,6 +702,9 @@ button.mn-age:disabled{opacity:1}
 .ms-mebox .ms-me.mn-row{width:100%;margin:0;padding:8px 16px;min-height:62px}
 .ms-mebox .ms-me.sel{background:color-mix(in srgb,var(--accent) 8%,transparent)}
 .ms-head .ms-cup{align-self:center;margin-top:-6px;margin-bottom:-6px}
+.card.ms{position:relative;overflow:hidden}
+#b-mesh-off.danger{color:#e5484d}
+.card.ms.holding::after{border-radius:0}
 </style>
 </head>
 <body>
@@ -3887,7 +3890,7 @@ button.mn-age:disabled{opacity:1}
       acts = '<button class="btn" type="button" id="b-mesh-demo-stop" data-act="mesh-demo-stop">Stop demo</button>';
     } else if(radio.state === "live"){
       head = '<span class="ms-dot live"></span><span class="ms-t">Connected</span>';
-      acts = meSel ? '<button class="link" type="button" id="b-mesh-off" data-act="mesh-disconnect">Disconnect</button>' : "";
+      acts = meSel ? '<button class="link danger" type="button" id="b-mesh-off" data-act="mesh-disconnect">Disconnect</button>' : "";
     } else if(radio.state === "connecting" || radio.state === "syncing"){
       head = '<span class="ms-dot busy"></span><span class="ms-t">' + (radio.state === "connecting" ? "Connecting" : "Loading nodes") + '</span><span class="ms-s">' +
         (radio.state === "syncing" && radio.synced ? radio.synced + " so far" : radioLabel()) + '</span>';
@@ -3957,7 +3960,7 @@ button.mn-age:disabled{opacity:1}
     const row = e.target.closest && e.target.closest("#main .mn, #main .ms-me, #main .mn-det");
     if(!row || e.target.closest("input, textarea, form")) return;
     const numEl = row.dataset.num ? row : row.querySelector("[data-num]");
-    const fill = row.closest(".mn") || row.closest(".ms-mebox") || row;      // the whole radio fills, open or closed
+    const fill = row.closest(".mn") || row.closest(".card.ms") || row;      // the whole radio fills, open or closed; for mine, its whole card
     const num = numEl ? +numEl.dataset.num : NaN; if(isNaN(num)) return;
     clearTimeout(hold && hold.t);
     fill.classList.add("holding");
