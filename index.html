@@ -2322,6 +2322,8 @@ body.has-tabs #main > *{align-content:start}
   }
   function ptsAttr(ring, P){ return ring.map(p => { const q = P(p); return q[0].toFixed(2) + "," + q[1].toFixed(2); }).join(" "); }
   // A KML that carries its own colours draws the same in every theme.
+  // drop every saved view of a day (each map tab keeps its own), so the next draw fits the blocks again
+  function forgetView(id){ for(const k of [...mapViews.keys()]) if(k === id || String(k).startsWith(id + ":")) mapViews.delete(k); }
   const kmlColoured = day => !!(day && day.kml && day.kml.groups.some(g => g.blocks.some(b => b.c)));
   // When the teams on show share one colour (usually: one team picked), the key uses it; launch pins likewise.
   function keyColours(day){
@@ -2607,7 +2609,7 @@ body.has-tabs #main > *{align-content:start}
       day.kml = k; day.blocks = []; day.teams = teamsOf(k).length > 1 ? null : [];
       teamSelDay = null;
       day.collapsed = day.collapsed.filter(id => id !== "blocks");
-      mapViews.delete(day.id);
+      forgetView(day.id);
       pruneMaps(5); save();
       if(!storageOK){ pruneMaps(1); save(); }
       render();
@@ -3027,7 +3029,7 @@ body.has-tabs #main > *{align-content:start}
       if(!day || !day.kml) return;
       day.teams = act === "team-all" ? [] : teamsOf(day.kml).filter(t => teamSel.has(t));
       teamSelDay = null;
-      mapViews.delete(day.id); save(); render();
+      forgetView(day.id); save(); render();
     }
     else if(act === "change-team"){
       if(!day || !day.kml) return;
