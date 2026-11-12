@@ -256,11 +256,11 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 .r-track{stroke:var(--road-track);stroke-width:1.1}
 .m-block{fill:color-mix(in srgb,var(--map-todo) 22%,transparent);stroke:var(--map-todo);stroke-width:2;vector-effect:non-scaling-stroke;cursor:pointer}
 .m-block.on{fill:color-mix(in srgb,var(--accent) 55%,transparent);stroke:var(--accent);stroke-width:2.5}
-.m-block.other{fill:color-mix(in srgb,var(--muted) 8%,transparent);stroke:var(--muted);stroke-width:1;stroke-dasharray:4 3;cursor:default}
+.m-block.other{fill:color-mix(in srgb,var(--muted) 14%,transparent);stroke:none;cursor:default}
 /* team colours from the KML: to fly = outlined in the team colour, flown = filled with it */
 .m-block.tc{fill:color-mix(in srgb,var(--bc) 10%,transparent);stroke:var(--bc);stroke-width:2}
 .m-block.tc.on{fill:color-mix(in srgb,var(--bc) 72%,transparent);stroke:var(--bc);stroke-width:3}
-.m-block.other.tc{fill:color-mix(in srgb,var(--bc) 5%,transparent);stroke:color-mix(in srgb,var(--bc) 55%,transparent);stroke-width:1}
+.m-block.other.tc{fill:color-mix(in srgb,var(--bc) 18%,transparent);stroke:none}
 .map-wrap.kc{--map-bg:#101418;--ink:#f2f4f7;--muted:#9aa3ad;--surface:#1b2027;--line:#2c333d;--line-strong:#3d4652;--accent:#ffffff;--accent-ink:#101418;--map-todo:#9aa3ad;color:var(--ink)}
 .map-wrap.kc .m-sec{opacity:.8}
 .map-wrap.teamcol .k-todo{background:transparent;border-color:var(--ink)}
@@ -2652,7 +2652,7 @@ body.has-tabs #main > *{align-content:start}
     const kc = kmlColoured(day);       // KML colours: a fixed dark picture, whatever the theme
     const dk = kc || isDark(), ink = kc ? "#f2f4f7" : tk("ink"), mut = kc ? "#9aa3ad" : tk("muted"), acc = kc ? "#ffffff" : tk("accent"),
       todo = kc ? "#9aa3ad" : tk("map-todo"), mbg = kc ? "#101418" : tk("map-bg"), surf = kc ? "#1b2027" : tk("surface");
-    const C = {bg: mbg, sec: al(mut, .6), track: tk("road-track"), gravel: tk("road-gravel"), tar: tk("road-tar"), oFill: al(mut, .1), oLine: al(mut, .5),
+    const C = {bg: mbg, sec: al(mut, .6), track: tk("road-track"), gravel: tk("road-gravel"), tar: tk("road-tar"), oFill: al(mut, .16), oLine: al(mut, .5),
       onFill: al(acc, .5), on: acc, todoFill: al(todo, .16), todo: todo, halo: al(mbg, .92), onText: dk ? "#FFFFFF" : ink, text: ink,
       mark: ink, markLine: mbg, sub: mut, head: dk ? surf : ink, headText: dk ? ink : "#FFFFFF", headSub: dk ? mut : "rgba(255,255,255,.72)",
       foot: al(surf, .9), footText: mut};
@@ -2667,7 +2667,7 @@ body.has-tabs #main > *{align-content:start}
     // other teams, faint
     x.setLineDash([8, 6]);
     for(const g of day.kml.groups) if(!mine(day, g)) for(const b of g.blocks) if(b.ring && b.ring.length > 2){
-      path(b.ring, true); x.fillStyle = b.c ? al(b.c, .06) : C.oFill; x.fill(); x.strokeStyle = b.c ? al(b.c, .55) : C.oLine; x.lineWidth = 1.5; x.stroke();
+      path(b.ring, true); x.fillStyle = b.c ? al(b.c, .18) : C.oFill; x.fill();
     }
     x.setLineDash([]);
     const all = []; for(const g of day.kml.groups) for(const b of g.blocks) all.push(b.name);
@@ -3901,7 +3901,7 @@ body.has-tabs #main > *{align-content:start}
     const myBat = me && me.bat != null ? batText(me) : null;
     const meSel = me && meshSel === me.num;
     const live = meshDemo || radio.state === "live";
-    const meSub = live ? "Your radio" : (me && me.heard ? "Your radio · heard " + ago(me.heard) : "Your radio");
+    const meSub = live ? "Your LoRa" : (me && me.heard ? "Your LoRa · heard " + ago(me.heard) : "Your LoRa");
     const batRow = me ? '<div class="ms-me mn-row' + (meSel ? " sel" : "") + '" role="button" tabindex="0" id="mn-' + me.num + '" data-act="mesh-sel" data-num="' + me.num + '" aria-expanded="' + meSel + '">' +
       '<span class="mn-badge me">' + esc(nodeShort(me)) + '</span>' +
       '<span class="mn-txt"><span class="mn-name"><span class="mn-nm">' + esc(nodeName(me)) + '</span>' + (meSel ? penBtn(me) : "") + '</span>' +
@@ -4102,7 +4102,7 @@ body.has-tabs #main > *{align-content:start}
     const n = meshStore()[String(num)]; if(!n) return;
     const name = num === meshMine() ? radioName(n) : nodeName(n);
     if(meshDemo){ offStatus("Demo: " + name + " would turn off now."); setTimeout(closeOff, 1400); return; }
-    if(radio.state !== "live"){ offRetry("Your radio isn’t connected."); return; }
+    if(radio.state !== "live"){ offRetry("Your LoRa isn’t connected."); return; }
     if(num === radio.num){
       // AdminMessage.shutdown_seconds (98) to my own radio
       const ok = await send(toRadio.packet({from: radio.num, to: radio.num, port: PORT.ADMIN, payload: PB.write([[98, "v", 3]]), id: packetId(), wantAck: true})).then(() => true, () => false);
@@ -4272,7 +4272,7 @@ body.has-tabs #main > *{align-content:start}
     const n = meshStore()[String(num)];
     if(!map || !n || n.lat == null) return;
     const q = map.P([n.lon, n.lat]), v = map.vb || map.fit;
-    const w = Math.min(v.w, 18), h = v.h * w / v.w;      // map units are about 111 m: no wider than ~2 km
+    const w = Math.min(v.w, 70), h = v.h * w / v.w;      // map units are about 111 m: ~8 km across, a few blocks around the node
     setVB({x: q[0] - w / 2, y: q[1] - h / 2, w, h});
   }
   // While renaming, scroll the node to the top of the screen, just under the top bar.
