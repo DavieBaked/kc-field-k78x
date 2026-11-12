@@ -2392,8 +2392,8 @@ body.has-tabs #main > *{align-content:start}
       }
     }
     if(mode === "mesh"){
-      // nodes heard today, unless they're far from everything else (over ~25 km)
-      for(const p of meshFitPoints()){ const q = P(p); if(Math.abs(q[0]) < 230 && Math.abs(q[1]) < 230) grow(q); }
+      // with a KML the view fits just the blocks; with no KML it fits the LoRas heard today (unless over ~25 km away)
+      if(!day.kml) for(const p of meshFitPoints()){ const q = P(p); if(Math.abs(q[0]) < 230 && Math.abs(q[1]) < 230) grow(q); }
       if(x0 === Infinity){ x0 = y0 = -5; x1 = y1 = 5; }
     }
     const pad = Math.max(x1 - x0, y1 - y0) * 0.08 + 0.5;
