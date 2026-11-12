@@ -4048,7 +4048,7 @@ body.has-tabs #main > *{align-content:start}
         if(e.target === pop || e.target.closest("[data-off-cancel]")) closeOff(); }); }
     pop.innerHTML = '<div class="mx-card" role="dialog" aria-modal="true" aria-labelledby="mx-pop-t">' +
       '<p class="mx-t" id="mx-pop-t">Turn off ' + esc(mine ? radioName(n) : nodeName(n)) + '</p>' +
-      '<p class="mx-s">Only its own button turns it back on.</p>' +
+      '<p class="mx-s">Only its physical button turns it back on.</p>' +
       '<div class="mx-off" id="mx-off"><span class="mx-off-t ask" aria-hidden="true">Are you locked in?</span><span class="mx-off-t lit" aria-hidden="true">I’m locked in</span>' +
       '<span class="mx-off-k" id="mx-off-k" role="slider" tabindex="0" aria-label="Are you locked in? Slide all the way to turn it off" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' + POWER + '</span></div>' +
       '<p class="mx-st" id="mx-st" aria-live="polite"></p>' +
