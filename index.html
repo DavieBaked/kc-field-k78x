@@ -279,6 +279,10 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 .m-me{fill:#2F7BEA;stroke:#fff;stroke-width:2;vector-effect:non-scaling-stroke}
 .m-me-halo{fill:rgb(47 123 234 / .18)}
 .sum-img{display:block;width:100%;border-radius:10px;border:1px solid var(--line)}
+.sum-imgs{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.sum-imgs::-webkit-scrollbar{display:none}
+.sum-imgs .sum-img{flex:0 0 86%;width:86%;scroll-snap-align:center}
+.sum-imgs:not([hidden]) ~ .sum-box{min-height:0;height:min(120px, 18vh)}
 .sum-box{min-height:150px}
 /* with the picture above it, the text box is shorter so Close and Share stay on screen */
 .sum-img:not([hidden]) ~ .sum-box{min-height:0;height:min(120px, 18vh)}
@@ -717,6 +721,7 @@ button.mn-age:disabled{opacity:1}
 .sum-prev{-webkit-user-drag:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 body.has-tabs #main{min-height:calc(100vh - 120px)}
 body.has-tabs #main > *{align-content:start}
+.sum-prevs{display:grid;gap:10px}
 </style>
 </head>
 <body>
@@ -744,6 +749,7 @@ body.has-tabs #main > *{align-content:start}
 <div class="modal top" id="summary" hidden>
   <div class="modal-card sheet" role="dialog" aria-modal="true" aria-labelledby="sum-title">
     <h2 id="sum-title">Day summary</h2>
+    <div class="sum-imgs" id="sum-imgs" hidden></div>
     <img class="sum-img" id="sum-img" alt="Map of the day’s blocks, flown ones in blue" hidden>
     <label class="sr" for="sum-text">Summary text</label>
     <textarea class="paste-box sum-box" id="sum-text" rows="9" spellcheck="false"></textarea>
@@ -2648,6 +2654,14 @@ body.has-tabs #main > *{align-content:start}
 
   // The summary picture: the team's blocks (flown in blue) over roads and section lines,
   // drawn on a canvas so it works offline. Always light colours so it reads well in WhatsApp.
+  // Several teams: one picture each, so none is zoomed far out. One team (or none chosen with one team in the KML): one picture.
+  function mapImages(day){
+    if(!day || !day.kml) return [];
+    const teams = (day.teams && day.teams.length ? day.teams : teamsOf(day.kml))
+      .filter(t => day.kml.groups.some(g => teamOf(g) === t && g.blocks.some(b => b.ring && b.ring.length > 2)));
+    if(teams.length <= 1){ const one = mapImage(day); return one ? [{cv: one, team: teamLabel(day)}] : []; }
+    return teams.map(t => ({cv: mapImage(Object.assign({}, day, {teams: [t]})), team: t})).filter(o => o.cv);
+  }
   function mapImage(day){
     if(!day.kml) return null;
     const own = visGroups(day).filter(g => g.blocks.some(b => b.ring && b.ring.length > 2));
@@ -2759,47 +2773,53 @@ body.has-tabs #main > *{align-content:start}
     return c;
   }
 
-  let sumBlob = null, sumUrl = null, sumHasImg = false;
+  let sumPics = [], sumUrls = [], sumHasImg = false;
   function openSummary(){
     const day = getDay(view.dayId) || current();
-    if(sumUrl){ URL.revokeObjectURL(sumUrl); sumUrl = null; }
-    sumBlob = null;
-    const img = $("#sum-img"), cv = mapImage(day);
-    $("#sum-text").value = summaryText(day, !!cv);
-    $("#sum-text").placeholder = cv ? "No notes for this day" : "";
-    img.hidden = true;
-    sumHasImg = !!cv;
-    if(cv) cv.toBlob(b => {
+    sumUrls.forEach(u => URL.revokeObjectURL(u)); sumUrls = [];
+    const pics = mapImages(day);
+    sumPics = pics.map(p => ({team: p.team, blob: null}));
+    $("#sum-text").value = summaryText(day, pics.length > 0);
+    $("#sum-text").placeholder = pics.length ? "No notes for this day" : "";
+    const img = $("#sum-img"), strip = $("#sum-imgs");
+    img.hidden = true; strip.hidden = true; strip.innerHTML = "";
+    sumHasImg = pics.length > 0;
+    pics.forEach((p, i) => p.cv.toBlob(b => {
       if(!b) return;
-      sumBlob = b; sumUrl = URL.createObjectURL(b);
-      img.src = sumUrl; img.hidden = false;
+      sumPics[i].blob = b; const u = URL.createObjectURL(b); sumUrls.push(u);
+      if(pics.length === 1){ img.src = u; img.hidden = false; }
+      else {
+        const el = document.createElement("img"); el.className = "sum-img"; el.src = u; el.alt = "Map of " + p.team + "’s blocks"; el.style.order = i;
+        strip.appendChild(el); strip.hidden = false;
+      }
       updateShareBtn();
-    }, "image/png");
+    }, "image/png"));
     updateShareBtn();
     $("#summary").hidden = false;
   }
-  function sumFile(){
+  function sumFiles(){
     const day = getDay(view.dayId) || current();
-    const name = (dayLabel(day.date) + (teamLabel(day) ? " " + teamLabel(day) : "")).replace(/[^\w-]+/g, "-").toLowerCase() + ".png";
-    return sumBlob ? new File([sumBlob], name, {type: "image/png"}) : null;
+    return sumPics.filter(p => p.blob).map(p => new File([p.blob],
+      (dayLabel(day.date) + (p.team ? " " + p.team : "")).replace(/[^\w-]+/g, "-").toLowerCase() + ".png", {type: "image/png"}));
   }
-  // Share stays disabled until the picture is ready.
-  function updateShareBtn(){ $("#sum-share").disabled = sumHasImg && !sumBlob; }
+  // Share stays disabled until every picture is ready.
+  function updateShareBtn(){ $("#sum-share").disabled = sumHasImg && sumPics.some(p => !p.blob); }
   async function shareSummary(){
-    const text = $("#sum-text").value, f = sumFile();
+    const text = $("#sum-text").value, fs = sumFiles();
     try{
       if(!navigator.share) throw new Error("no-share");
-      if(f && navigator.canShare && navigator.canShare({files: [f]})) await navigator.share(text.trim() ? {files: [f], text} : {files: [f]});
+      if(fs.length && navigator.canShare && navigator.canShare({files: fs})) await navigator.share(text.trim() ? {files: fs, text} : {files: fs});
       else await navigator.share({text});
       closeSummary();
     }catch(e){
       if(e && e.name === "AbortError") return;
-      // some apps refuse files + text together: copy the text, share the picture alone
-      try{ if(f && navigator.share){ await copyText(text); await navigator.share({files: [f]}); toast("Paste the text as the caption."); closeSummary(); return; } }catch(e2){ if(e2 && e2.name === "AbortError") return; }
-      // no sharing here (for example on a computer): copy the text and save the picture
+      // some apps refuse files + text together: copy the text, share the pictures alone
+      try{ if(fs.length && navigator.share){ await copyText(text); await navigator.share({files: fs}); toast("Paste the text as the caption."); closeSummary(); return; } }catch(e2){ if(e2 && e2.name === "AbortError") return; }
+      // no sharing here (for example on a computer): copy the text and save the pictures
       const ok = text.trim() ? await copyText(text) : false;
-      const saved = f ? await saveFile(f.name, f, "image/png") === "saved" : false;
-      if(saved) toast("Image saved"); else if(!ok) toast("Couldn’t share from here");
+      let saved = false;
+      for(const f of fs) if(await saveFile(f.name, f, "image/png") === "saved") saved = true;
+      if(saved) toast(fs.length > 1 ? "Images saved" : "Image saved"); else if(!ok) toast("Couldn’t share from here");
     }
   }
   function closeSummary(){ $("#summary").hidden = true; }
@@ -4201,15 +4221,16 @@ body.has-tabs #main > *{align-content:start}
     const bs = blockStats(day);
     const head = day.kml ? '<div class="blk-head"><div class="blk-tot"><span class="blk-big">' + bs.done + "/" + bs.total + '</span> <span>blocks flown</span></div>' +
       '<div class="blk-ha">' + fmtHa(bs.doneHa) + " of " + fmtHa(bs.totalHa) + ' ha</div></div>' : "";
-    const prev = '<img class="sum-img sum-prev" id="sum-prev" draggable="false" alt="The picture that will be shared: the day’s blocks, flown ones marked" hidden>';
+    const prev = '<div class="sum-prevs" id="sum-prev"></div>';
     return '<div class="blk-tab sum-tab">' + head + prev + (cut >= 0 ? h.slice(cut) : "");
   }
   // The same picture Share sends, drawn into the Summary tab.
   function summaryPreview(day){
-    const im = $("#sum-prev"); if(!im) return;
-    let cv = null; try{ cv = mapImage(day); }catch(e){}
-    if(!cv){ im.remove(); return; }
-    im.src = cv.toDataURL("image/png"); im.hidden = false;
+    const box = $("#sum-prev"); if(!box) return;
+    let pics = []; try{ pics = mapImages(day); }catch(e){}
+    if(!pics.length){ box.remove(); return; }
+    // one picture per team when several are picked, stacked in the order they'll be sent
+    box.innerHTML = pics.map(p => '<img class="sum-img sum-prev" draggable="false" alt="Picture to share: ' + esc(p.team || "the day’s blocks") + '" src="' + p.cv.toDataURL("image/png") + '">').join("");
     const hd = $(".sum-tab .blk-head"); if(hd) hd.remove();   // the picture already says how many were flown
   }
   // Redraws the parts that change, without rebuilding the map.
