@@ -3035,7 +3035,7 @@ body.has-tabs #main > *{align-content:start}
       day.teams = null; save(); render();
     }
     else if(act === "map-zoom"){ if(map){ const r = map.svg.getBoundingClientRect(); zoomAt(b.dataset.z === "in" ? 0.6 : 1.6, r.left + r.width / 2, r.top + r.height / 2); } }
-    else if(act === "map-fit"){ if(map && map.mode === "mesh") refit(); else if(map){ fitTo(map.fit, true); setFree(false); } }
+    else if(act === "map-fit"){ if(map && map.mode === "mesh" && !map.day.kml) refit(); else if(map){ fitTo(map.fit, true); setFree(false); } }
     else if(act === "map-locate"){ locate(); }
     else if(act === "sum-share"){ shareSummary(); }
     else if(act === "blocks-all"){
