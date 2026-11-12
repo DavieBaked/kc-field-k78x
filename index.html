@@ -256,11 +256,13 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 .r-track{stroke:var(--road-track);stroke-width:1.1}
 .m-block{fill:color-mix(in srgb,var(--map-todo) 22%,transparent);stroke:var(--map-todo);stroke-width:2;vector-effect:non-scaling-stroke;cursor:pointer}
 .m-block.on{fill:color-mix(in srgb,var(--accent) 55%,transparent);stroke:var(--accent);stroke-width:2.5}
-.m-block.other{fill:color-mix(in srgb,var(--muted) 14%,transparent);stroke:none;cursor:default}
+.m-block.other{fill:color-mix(in srgb,var(--muted) 8%,transparent);stroke:none;cursor:default}
+.m-oedge{fill:none;stroke:var(--muted);stroke-width:1;stroke-dasharray:4 3;vector-effect:non-scaling-stroke;pointer-events:none}
 /* team colours from the KML: to fly = outlined in the team colour, flown = filled with it */
 .m-block.tc{fill:color-mix(in srgb,var(--bc) 10%,transparent);stroke:var(--bc);stroke-width:2}
 .m-block.tc.on{fill:color-mix(in srgb,var(--bc) 72%,transparent);stroke:var(--bc);stroke-width:3}
-.m-block.other.tc{fill:color-mix(in srgb,var(--bc) 18%,transparent);stroke:none}
+.m-block.other.tc{fill:color-mix(in srgb,var(--bc) 6%,transparent);stroke:none}
+.map-wrap.kc .m-oedge{opacity:.75}
 .map-wrap.kc{--map-bg:#101418;--ink:#f2f4f7;--muted:#9aa3ad;--surface:#1b2027;--line:#2c333d;--line-strong:#3d4652;--accent:#ffffff;--accent-ink:#101418;--map-todo:#9aa3ad;color:var(--ink)}
 .map-wrap.kc .m-sec{opacity:.8}
 .map-wrap.teamcol .k-todo{background:transparent;border-color:var(--ink)}
@@ -2348,6 +2350,14 @@ body.has-tabs #main > *{align-content:start}
     const order = {track: 0, gravel: 1, tar: 2};
     for(const r of (K.roads || []).slice().sort((a, b) => order[a.c] - order[b.c])) roads += '<polyline class="m-road r-' + r.c + '"' + (r.k ? ' style="stroke:' + r.k + '"' : "") + ' points="' + ptsAttr(r.p, P) + '"/>';
     let others = "", otherLabels = "";
+    const oEdges = new Map();
+    const otherEdges = () => {
+      const byCol = new Map();
+      for(const e of oEdges.values()) byCol.set(e.c, (byCol.get(e.c) || "") + e.d);
+      let s = "";
+      for(const [c, d] of byCol) s += '<path class="m-oedge"' + (c ? ' style="stroke:' + c + '"' : "") + ' d="' + d + '"/>';
+      return s;
+    };
     for(const g of K.groups){
       const own = mine(day, g);
       for(const b of g.blocks){
@@ -2363,6 +2373,14 @@ body.has-tabs #main > *{align-content:start}
           labels += '<text class="m-lbl"' + fitAttr + ' x="' + cx.toFixed(2) + '" y="' + cy.toFixed(2) + '">' + short + '</text>';
         } else {
           others += '<polygon class="m-block other' + (b.c ? ' tc" style="--bc:' + b.c : "") + '" points="' + pts + '"/>';
+          // dashed outline, each shared edge drawn once so neighbouring blocks don't stack into a solid line
+          for(let i = 0; i < q.length; i++){
+            const a = q[i], z = q[(i + 1) % q.length];
+            const ka = a[0].toFixed(2) + "," + a[1].toFixed(2), kz = z[0].toFixed(2) + "," + z[1].toFixed(2);
+            if(ka === kz) continue;
+            const key = ka < kz ? ka + " " + kz : kz + " " + ka;
+            if(!oEdges.has(key)) oEdges.set(key, {d: "M" + ka + "L" + kz, c: b.c || ""});
+          }
           otherLabels += '<text class="m-lbl other"' + fitAttr + ' x="' + cx.toFixed(2) + '" y="' + cy.toFixed(2) + '">' + short + '</text>';
         }
       }
@@ -2388,7 +2406,7 @@ body.has-tabs #main > *{align-content:start}
       wrapEl.style.setProperty("--kt", kk.team || ""); wrapEl.style.setProperty("--kl", kk.launch || "");
     }
     svg.innerHTML = '<rect class="m-bg" x="-100000" y="-100000" width="200000" height="200000"/>' +
-      '<g>' + secs + '</g><g>' + roads + '</g><g>' + others + '</g><g id="m-blocks">' + blocks + '</g>' +
+      '<g>' + secs + '</g><g>' + roads + '</g><g>' + others + otherEdges() + '</g><g id="m-blocks">' + blocks + '</g>' +
       '<g id="m-labels" class="m-labels">' + otherLabels + labels + launches + '</g>' +
       (mode === "mesh" ? '<g id="m-track"></g><g id="m-nodes" class="m-nodes"></g>' : "") +
       '<g id="m-me" hidden><circle class="m-me-halo" r="1"/><circle class="m-me" r="1"/></g>';
@@ -2666,9 +2684,18 @@ body.has-tabs #main > *{align-content:start}
     for(const cls of ["track", "gravel", "tar"]) for(const r of (day.kml.roads || [])) if(r.c === cls){ x.strokeStyle = r.k || rs[cls][0]; x.lineWidth = rs[cls][1]; path(r.p, false); x.stroke(); }
     // other teams, faint
     x.setLineDash([8, 6]);
+    const seenE = new Set(), oSegs = [];
     for(const g of day.kml.groups) if(!mine(day, g)) for(const b of g.blocks) if(b.ring && b.ring.length > 2){
-      path(b.ring, true); x.fillStyle = b.c ? al(b.c, .18) : C.oFill; x.fill();
+      path(b.ring, true); x.fillStyle = b.c ? al(b.c, .06) : C.oFill; x.fill();
+      for(let i = 0; i < b.ring.length; i++){
+        const a = b.ring[i], z = b.ring[(i + 1) % b.ring.length], ka = a.join(), kz = z.join();
+        if(ka === kz) continue;
+        const key = ka < kz ? ka + " " + kz : kz + " " + ka;
+        if(!seenE.has(key)){ seenE.add(key); oSegs.push([a, z, b.c]); }
+      }
     }
+    x.lineWidth = 1.5;
+    for(const [a, z, c] of oSegs){ x.strokeStyle = c ? al(c, .55) : C.oLine; path([a, z], false); x.stroke(); }
     x.setLineDash([]);
     const all = []; for(const g of day.kml.groups) for(const b of g.blocks) all.push(b.name);
     const pre = shortPrefix(all);
@@ -4274,6 +4301,7 @@ body.has-tabs #main > *{align-content:start}
     const q = map.P([n.lon, n.lat]), v = map.vb || map.fit;
     const w = Math.min(v.w, 70), h = v.h * w / v.w;      // map units are about 111 m: ~8 km across, a few blocks around the node
     setVB({x: q[0] - w / 2, y: q[1] - h / 2, w, h});
+    setFree(true);                                         // lights the reframe button, so one tap goes back to the full view
   }
   // While renaming, scroll the node to the top of the screen, just under the top bar.
   function fitAboveKeyboard(el){
