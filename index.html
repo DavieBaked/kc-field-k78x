@@ -2657,7 +2657,7 @@ body.has-tabs #main > *{align-content:start}
     const P = proj(day);
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     const grow = q => { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); };
-    for(const g of own){ for(const b of g.blocks) (b.ring || []).forEach(p => grow(P(p))); if(g.launch) grow(P(g.launch.at)); }
+    for(const g of own) for(const b of g.blocks) (b.ring || []).forEach(p => grow(P(p)));   // the picture frames the blocks only
     const aw = W - PAD * 2, ah = H - HEAD - FOOT - PAD * 2;
     const sc = Math.min(aw / Math.max(0.5, x1 - x0), ah / Math.max(0.5, y1 - y0));
     const ox = PAD + (aw - (x1 - x0) * sc) / 2 - x0 * sc, oy = HEAD + PAD + (ah - (y1 - y0) * sc) / 2 - y0 * sc;
@@ -2716,25 +2716,17 @@ body.has-tabs #main > *{align-content:start}
     }
     x.textAlign = "center"; x.textBaseline = "middle"; x.lineJoin = "round";
     let anyLabel = false;
+    // one size for every block name: the largest that fits the tightest block (never below 16 px)
+    const fitSize = (txt, bw) => { let s = 30; x.font = "700 " + s + "px " + F; while(s > 16 && x.measureText(txt).width > bw - 10){ s -= 2; x.font = "700 " + s + "px " + F; } return s; };
+    const size = labels.length ? Math.min.apply(null, labels.map(([, , t, on, bw]) => fitSize((on ? "✓ " : "") + t, bw))) : 30;
     for(const [lx, ly, t, on, bw] of labels){
-      // largest size that fits the block; skip the name if even small text won't fit
-      let size = 30, txt = (on ? "✓ " : "") + t;
+      let txt = (on ? "✓ " : "") + t;
       x.font = "700 " + size + "px " + F;
-      while(size > 16 && x.measureText(txt).width > bw - 10){ size -= 2; x.font = "700 " + size + "px " + F; }
-      if(x.measureText(txt).width > bw - 6){ txt = on ? "✓" : ""; x.font = "700 22px " + F; }
+      if(x.measureText(txt).width > bw - 6) txt = on ? "✓" : "";
       if(!txt) continue;
       anyLabel = true;
       x.lineWidth = Math.max(4, size / 4.5); x.strokeStyle = C.halo; x.strokeText(txt, lx, ly);
       x.fillStyle = on ? C.onText : C.text; x.fillText(txt, lx, ly);
-    }
-    for(const g of own) if(g.launch){
-      const q = T(g.launch.at);
-      x.beginPath(); x.moveTo(q[0], q[1] - 15); x.lineTo(q[0] + 13, q[1] + 9); x.lineTo(q[0] - 13, q[1] + 9); x.closePath();
-      x.fillStyle = g.launch.k || C.mark; x.fill(); x.lineWidth = 3; x.strokeStyle = C.markLine; x.stroke();
-      const ln = g.launch.name.replace(/\s+(launch|car)$/i, ""), lt = pre && ln.startsWith(pre) ? ln.slice(pre.length) : ln;
-      x.textAlign = "center"; x.textBaseline = "top"; x.font = "600 24px " + F;
-      x.lineWidth = 6; x.strokeStyle = C.halo; x.strokeText(lt, q[0], q[1] + 14);
-      x.fillStyle = C.sub; x.fillText(lt, q[0], q[1] + 14);
     }
     // header
     x.fillStyle = C.head; x.fillRect(0, 0, W, HEAD);
