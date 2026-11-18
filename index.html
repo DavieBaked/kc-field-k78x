@@ -2618,7 +2618,10 @@ body.has-tabs #main > *{align-content:start}
   $("#kml-file").addEventListener("change", e => {
     const f = e.target.files && e.target.files[0];
     e.target.value = "";
-    if(!f) return;
+    if(f) loadKmlFile(f);
+  });
+  // Loads a KML into the day on screen. Used by the picker and by sharing a file to the app (WhatsApp → Share → Kruger).
+  function loadKmlFile(f){
     if(/\.kmz$/i.test(f.name)){ toast("That’s a KMZ. Export it as a .kml file and try again."); return; }
     toast("Reading " + f.name + "…");
     const r = new FileReader();
@@ -2639,7 +2642,7 @@ body.has-tabs #main > *{align-content:start}
     };
     r.onerror = () => toast("Couldn’t read that file.");
     r.readAsText(f);
-  });
+  }
   window.addEventListener("resize", () => { if(map && map.vb) fitTo(map.vb, false); });
 
   /* ---------- day summary for WhatsApp ---------- */
@@ -4405,6 +4408,19 @@ body.has-tabs #main > *{align-content:start}
         else navigator.serviceWorker.ready.then(done);
       }).catch(() => {});
     });
+  }
+
+  /* ---------- a KML shared into the app from WhatsApp (or Files): load it into the day on screen ---------- */
+  if(/[?&]shared-kml=1/.test(location.search) && "caches" in window){
+    history.replaceState(null, "", location.pathname);
+    caches.open("kruger-shared").then(async c => {
+      const res = await c.match("./shared-kml"); if(!res) return;
+      const name = decodeURIComponent(res.headers.get("x-name") || "shared.kml");
+      const blob = await res.blob(); await c.delete("./shared-kml");
+      if(view.mode !== "day") go({mode: "day", dayId: current().id});
+      if(dayTab !== "blocks") slideTo("blocks");
+      loadKmlFile(new File([blob], name));
+    }).catch(() => toast("Couldn’t open the shared file."));
   }
 
   /* ---------- swipe between Checklist and Blocks ----------

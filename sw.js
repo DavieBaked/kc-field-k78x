@@ -1,6 +1,7 @@
 // Keeps a copy of Kruger Checklist on the phone so it opens with no signal.
 // When there is signal it fetches the latest version first (and saves that), so updates arrive by themselves.
-const CACHE = "kruger-checklist-v1";
+const CACHE = "kruger-checklist-v2";
+const SHARED = "kruger-shared";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
@@ -11,6 +12,20 @@ self.addEventListener("activate", e => {
 });
 self.addEventListener("fetch", e => {
   const req = e.request;
+  // a KML shared to the app (WhatsApp → Share → Kruger): keep it, then open the app, which loads it
+  if(req.method === "POST" && new URL(req.url).pathname.endsWith("/share-kml")){
+    e.respondWith((async () => {
+      try{
+        const form = await req.formData(), f = form.getAll("kml").find(x => x && x.size);
+        if(f){
+          const c = await caches.open(SHARED);
+          await c.put("./shared-kml", new Response(f, {headers: {"x-name": encodeURIComponent(f.name || "shared.kml")}}));
+        }
+      }catch(err){}
+      return Response.redirect("./?shared-kml=1", 303);
+    })());
+    return;
+  }
   if(req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
   if(req.mode === "navigate" || req.destination === "document"){
     // the page: newest from the network if it answers within 4 seconds, otherwise the saved copy

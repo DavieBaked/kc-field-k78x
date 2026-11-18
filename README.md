@@ -43,3 +43,6 @@ Phones pick it up the next time they open the app with signal.
 - Each node shows when it was last heard and how old its position is. Positions are only as fresh as each radio sends them.
 - **Keep the Meshtastic app as the backup for finding a downed drone** until this has been tested in the field.
 - **Try demo** shows made-up nodes so you can see the layout anywhere.
+
+## Loading a KML from WhatsApp
+With the app added to the home screen: in WhatsApp, long-press the KML file → Share → **Kruger**. It opens the app and loads the KML into the day on screen.
