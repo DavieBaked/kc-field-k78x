@@ -4442,6 +4442,11 @@ body.has-tabs #main > *{align-content:start}
     history.replaceState(null, "", location.pathname);
     caches.open("kruger-shared").then(async c => {
       const res = await c.match("./shared-kml"); if(!res) return;
+      if(res.headers.get("x-none")){
+        await c.delete("./shared-kml");
+        toast("Only the message text came through, not the KML. In WhatsApp, long-press the file itself, then Share.", {ms: 9000});
+        return;
+      }
       const name = decodeURIComponent(res.headers.get("x-name") || "shared.kml");
       const blob = await res.blob(); await c.delete("./shared-kml");
       if(view.mode !== "day") go({mode: "day", dayId: current().id});

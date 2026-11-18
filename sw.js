@@ -1,6 +1,6 @@
 // Keeps a copy of Kruger Checklist on the phone so it opens with no signal.
 // When there is signal it fetches the latest version first (and saves that), so updates arrive by themselves.
-const CACHE = "kruger-checklist-v2";
+const CACHE = "kruger-checklist-v3";
 const SHARED = "kruger-shared";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
@@ -16,11 +16,21 @@ self.addEventListener("fetch", e => {
   if(req.method === "POST" && new URL(req.url).pathname.endsWith("/share-kml")){
     e.respondWith((async () => {
       try{
-        const form = await req.formData(), f = form.getAll("kml").find(x => x && x.size);
-        if(f){
-          const c = await caches.open(SHARED);
-          await c.put("./shared-kml", new Response(f, {headers: {"x-name": encodeURIComponent(f.name || "shared.kml")}}));
+        // WhatsApp can send the message text along with (or instead of) the file: pick the file that is actually a KML/KMZ
+        const form = await req.formData(), files = form.getAll("kml").filter(x => x && x.size);
+        let best = null, bestScore = 0;
+        for(const f of files){
+          const head = new Uint8Array(await f.slice(0, 64).arrayBuffer());
+          const txt = new TextDecoder().decode(head).replace(/^\uFEFF/, "").trimStart();
+          let score = 0;
+          if(/\.km[lz]$/i.test(f.name || "")) score += 3;
+          if(txt.startsWith("<") || (head[0] === 0x50 && head[1] === 0x4b) || head[0] === 0xff || head[0] === 0xfe) score += 2;
+          if(/kml|xml|zip/i.test(f.type || "")) score += 1;
+          if(score > bestScore){ best = f; bestScore = score; }
         }
+        const c = await caches.open(SHARED);
+        if(best && bestScore >= 2) await c.put("./shared-kml", new Response(best, {headers: {"x-name": encodeURIComponent(best.name || "shared.kml")}}));
+        else await c.put("./shared-kml", new Response("", {headers: {"x-none": "1"}}));
       }catch(err){}
       return Response.redirect("./?shared-kml=1", 303);
     })());
