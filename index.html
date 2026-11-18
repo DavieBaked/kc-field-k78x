@@ -1049,8 +1049,8 @@ body.has-tabs #main > *{align-content:start}
     document.querySelectorAll(".battwarn").forEach(el => { el.textContent = w; el.hidden = !w; });
   }
   function setDrone(day, i, field, v){ if(i === 0) day[field] = v; else if(day.extra[i - 1]) day.extra[i - 1][field] = v; }
-  function makeDay(prev){
-    const date = prev ? addDays(prev.date, 1) : firstDate();
+  function makeDay(prev, on){
+    const date = on || (prev ? addDays(prev.date, 1) : firstDate());
     return {
       id: uid("d"),
       date: date,
@@ -1241,6 +1241,21 @@ body.has-tabs #main > *{align-content:start}
   save();
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); }catch(e){}
 
+  // Coming back after missed days: jump to the day being worked on now (today, or tomorrow's prep after 2pm),
+  // instead of reopening an old day. An untouched latest day is simply moved to that date.
+  const untouched = d => !d.checked.length && !d.kml && !(d.notes || "").trim() && !(d.blocks || []).length;
+  function catchUp(){
+    const want = firstDate(), cur = current();
+    if(!cur || !isISO(cur.date) || cur.date >= want) return null;
+    if(untouched(cur)){
+      const prev = prevOf(cur);
+      cur.date = want;
+      if(prev) cur.camera = cameraFor(prev.camera, want), cur.extra = (prev.extra || []).map(x => ({drone: x.drone, camera: cameraFor(x.camera, want)}));
+    } else state.days.push(makeDay(cur, want));
+    save();
+    return current();
+  }
+  catchUp();
   let view = {mode:"day", dayId: current().id};
   let foldT = 0;
   let dayTab = "list";
@@ -4500,7 +4515,13 @@ body.has-tabs #main > *{align-content:start}
     const el = e.target;
     if(e.key === "Enter" && el.dataset && (el.dataset.field === "drone" || el.dataset.field === "camera")) el.blur();
   });
-  document.addEventListener("visibilitychange", () => { if(document.visibilityState === "hidden") save(); });
+  document.addEventListener("visibilitychange", () => {
+    if(document.visibilityState === "hidden"){ save(); return; }
+    // left open in the background across days: catch up, unless you're looking through old days
+    const wasCur = view.mode === "day" && view.dayId === current().id;
+    const nd = catchUp();
+    if(nd){ if(wasCur) go({mode:"day", dayId: nd.id}); else render(); }
+  });
   window.addEventListener("pagehide", save);
 
   render();
