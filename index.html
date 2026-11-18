@@ -1637,11 +1637,12 @@ body.has-tabs #main > *{align-content:start}
   let toastT;
   function toast(msg, action){
     const t = $("#toast");
+    const ms = action && action.ms; if(action && !action.label) action = null;
     t.innerHTML = '<span>' + esc(msg) + '</span>' + (action ? '<button class="t-act" type="button" id="t-act">' + esc(action.label) + '</button>' : "");
     t.hidden = false;
     if(action) $("#t-act").onclick = () => { t.hidden = true; clearTimeout(toastT); action.fn(); };
     clearTimeout(toastT);
-    toastT = setTimeout(() => { t.hidden = true; }, action ? 6000 : 2400);
+    toastT = setTimeout(() => { t.hidden = true; }, ms || (action ? 6000 : 2400));
   }
   function confirmTap(btn, label){
     if(btn.classList.contains("armed")){
@@ -2622,12 +2623,15 @@ body.has-tabs #main > *{align-content:start}
   });
   // Loads a KML into the day on screen. Used by the picker and by sharing a file to the app (WhatsApp → Share → Kruger).
   function loadKmlFile(f){
-    if(/\.kmz$/i.test(f.name)){ toast("That’s a KMZ. Export it as a .kml file and try again."); return; }
-    toast("Reading " + f.name + "…");
-    const r = new FileReader();
-    r.onload = () => {
-      const k = parseKml(String(r.result || ""));
-      if(!k){ toast("Couldn’t read that KML file."); return; }
+    toast("Reading " + (f.name || "the file") + "…");
+    readKmlText(f).then(text => {
+      const k = parseKml(text);
+      if(!k){
+        // say what actually arrived, so a bad share or an odd file is easy to spot
+        const head = text.trim().slice(0, 40).replace(/\s+/g, " ");
+        toast("Couldn’t read that KML (" + (f.name || "no name") + ", " + Math.max(1, Math.round(f.size / 1024)) + " KB" + (head ? ", starts “" + head + "”" : ", empty") + ").", {ms: 9000});
+        return;
+      }
       if(!k.groups.length){ toast("No blocks found in that KML."); return; }
       const day = getDay(view.dayId); if(!day) return;
       day.kml = k; day.blocks = []; day.teams = teamsOf(k).length > 1 ? null : [];
@@ -2639,9 +2643,32 @@ body.has-tabs #main > *{align-content:start}
       render();
       const total = k.groups.reduce((s, g) => s + g.blocks.length, 0);
       toast("Loaded " + total + (total === 1 ? " block" : " blocks") + " from " + k.groups.length + (k.groups.length === 1 ? " launch point" : " launch points"));
-    };
-    r.onerror = () => toast("Couldn’t read that file.");
-    r.readAsText(f);
+    }, err => toast(err && err.message ? err.message : "Couldn’t read that file."));
+  }
+  // The file's text: plain KML in any common encoding, or the KML inside a KMZ (a zip).
+  async function readKmlText(f){
+    const buf = new Uint8Array(await f.arrayBuffer());
+    if(buf[0] === 0x50 && buf[1] === 0x4b) return unzipKml(buf);
+    if(buf[0] === 0xff && buf[1] === 0xfe) return new TextDecoder("utf-16le").decode(buf);
+    if(buf[0] === 0xfe && buf[1] === 0xff) return new TextDecoder("utf-16be").decode(buf);
+    return new TextDecoder("utf-8").decode(buf);
+  }
+  async function unzipKml(buf){
+    const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+    let i = 0, best = null;
+    while(i + 30 <= buf.length && dv.getUint32(i, true) === 0x04034b50){
+      const method = dv.getUint16(i + 8, true), csize = dv.getUint32(i + 18, true);
+      const nlen = dv.getUint16(i + 26, true), xlen = dv.getUint16(i + 28, true);
+      const name = new TextDecoder().decode(buf.subarray(i + 30, i + 30 + nlen));
+      const start = i + 30 + nlen + xlen;
+      if(/\.kml$/i.test(name) && (!best || /(^|\/)doc\.kml$/i.test(name))) best = {method, data: buf.subarray(start, start + csize)};
+      i = start + csize;
+    }
+    if(!best) throw new Error("No KML found inside that KMZ.");
+    if(best.method === 0) return new TextDecoder().decode(best.data);
+    if(best.method !== 8 || !("DecompressionStream" in window)) throw new Error("Couldn’t open that KMZ here. Export it as a .kml file.");
+    const out = new Response(new Blob([best.data]).stream().pipeThrough(new DecompressionStream("deflate-raw")));
+    return new TextDecoder().decode(await out.arrayBuffer());
   }
   window.addEventListener("resize", () => { if(map && map.vb) fitTo(map.vb, false); });
 
