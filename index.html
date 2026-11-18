@@ -2431,7 +2431,7 @@ body.has-tabs #main > *{align-content:start}
     }
     svg.innerHTML = '<rect class="m-bg" x="-100000" y="-100000" width="200000" height="200000"/>' +
       '<g>' + secs + '</g><g>' + roads + '</g><g>' + others + otherEdges() + '</g><g id="m-blocks">' + blocks + '</g>' +
-      '<g id="m-labels" class="m-labels">' + otherLabels + labels + launches + '</g>' +
+      '<g id="m-labels" class="m-labels">' + otherLabels + launches + labels + '</g>' +   // block codes on top of launch pins
       (mode === "mesh" ? '<g id="m-track"></g><g id="m-nodes" class="m-nodes"></g>' : "") +
       '<g id="m-me" hidden><circle class="m-me-halo" r="1"/><circle class="m-me" r="1"/></g>';
     const mv = mapViews.get(day.id + ":" + mode);
@@ -2485,14 +2485,18 @@ body.has-tabs #main > *{align-content:start}
     const lab = $("#m-labels");
     if(lab){
       lab.setAttribute("font-size", (12 * px).toFixed(4));
-      // a name shows only when its block is wide enough on screen to hold it
-      let shown = 0, total = 0;
+      // every block keeps its name: the text shrinks to fit the block on screen, down to a small but readable size
+      let tight = 0, total = 0;
       lab.querySelectorAll("[data-bw]").forEach(t => {
-        const fits = Number(t.dataset.bw) / px >= Number(t.dataset.len) * (t.classList.contains("other") ? 6.2 : 7.6) + 6;
-        t.style.display = fits ? "" : "none";
-        if(!t.classList.contains("other")){ total++; if(fits) shown++; }
+        const other = t.classList.contains("other"), per = other ? 0.56 : 0.62;          // width of one character, per px of font size
+        const room = Number(t.dataset.bw) / px - 3, len = Math.max(1, Number(t.dataset.len));
+        const want = room / (len * per), fs = Math.max(other ? 5.5 : 6, Math.min(other ? 10.5 : 12, want));
+        t.setAttribute("font-size", (fs * px).toFixed(4));
+        t.style.display = "";
+        if(!other){ total++; if(want < 8) tight++; }
       });
-      lab.classList.toggle("far", total > 0 && shown === 0);
+      // zoomed far out: launch names step aside so the block codes stay readable
+      lab.classList.toggle("far", total > 0 && tight > total / 2);
     }
     drawMe();
     drawNodes();
