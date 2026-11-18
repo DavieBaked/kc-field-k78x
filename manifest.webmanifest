@@ -42,7 +42,8 @@
             "application/xml",
             "text/xml",
             "text/plain",
-            "application/octet-stream"
+            "application/octet-stream",
+            "*/*"
           ]
         }
       ]
