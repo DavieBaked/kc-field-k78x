@@ -261,6 +261,10 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 /* team colours from the KML: to fly = outlined in the team colour, flown = filled with it */
 .m-block.tc{fill:color-mix(in srgb,var(--bc) 10%,transparent);stroke:var(--bc);stroke-width:2}
 .m-block.tc.on{fill:color-mix(in srgb,var(--bc) 72%,transparent);stroke:var(--bc);stroke-width:3}
+/* tap = picked (dashed, brighter); hold = flown, filling in as you hold */
+.m-block.sel{stroke-dasharray:7 5;stroke-width:3.5;fill:color-mix(in srgb,var(--bc,var(--accent)) 32%,transparent);stroke:var(--bc,var(--accent))}
+.m-block.holding{animation:blk-hold .7s linear .3s forwards}
+@keyframes blk-hold{to{fill:color-mix(in srgb,var(--bc,var(--accent)) 80%,transparent);stroke-dasharray:none}}
 .m-block.other.tc{fill:color-mix(in srgb,var(--bc) 6%,transparent);stroke:none}
 .map-wrap.kc .m-oedge{opacity:.75}
 .map-wrap.kc{--map-bg:#101418;--ink:#f2f4f7;--muted:#9aa3ad;--surface:#1b2027;--line:#2c333d;--line-strong:#3d4652;--accent:#ffffff;--accent-ink:#101418;--map-todo:#9aa3ad;color:var(--ink)}
@@ -284,6 +288,10 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 .sum-imgs .sum-img{flex:0 0 86%;width:86%;scroll-snap-align:center}
 .sum-imgs:not([hidden]) ~ .sum-box{min-height:0;height:min(120px, 18vh)}
 .sum-box{min-height:150px}
+.fl-l{font-weight:600;font-size:calc(14px * var(--fs));color:var(--muted);margin-bottom:-12px}
+.fl-in{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font:inherit;font-size:16px}
+.fl-notes{min-height:84px}
+.fl-undo{justify-self:center;margin-top:-6px}
 /* with the picture above it, the text box is shorter so Close and Share stay on screen */
 .sum-img:not([hidden]) ~ .sum-box{min-height:0;height:min(120px, 18vh)}
 .btn.big{min-height:50px;font-size:calc(16px * var(--fs))}
@@ -722,6 +730,13 @@ button.mn-age:disabled{opacity:1}
 body.has-tabs #main{min-height:calc(100vh - 120px)}
 body.has-tabs #main > *{align-content:start}
 .sum-prevs{display:grid;gap:10px}
+/* Flights list on the Summary tab */
+.fl-list{list-style:none;margin:0;padding:0}
+.fl-list li + li{border-top:1px solid var(--line)}
+.fl-row{width:100%;display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:12px 16px;border:0;background:none;color:var(--ink);font:inherit;text-align:left}
+.fl-n{font-weight:700}
+.fl-b{font-weight:600;color:var(--ink)}
+.fl-t{grid-column:1 / -1;color:var(--muted);font-size:calc(14px * var(--fs));line-height:1.4;white-space:pre-wrap}
 </style>
 </head>
 <body>
@@ -744,6 +759,20 @@ body.has-tabs #main > *{align-content:start}
     </div>
     <p class="sub-note" id="batt-note"></p>
     <div class="links" style="justify-content:center"><button class="btn primary" type="button" id="batt-done" data-act="batt-done">Done</button></div>
+  </div>
+</div>
+<div class="modal top" id="flight" hidden>
+  <div class="modal-card sheet" role="dialog" aria-modal="true" aria-labelledby="fl-title">
+    <h2 id="fl-title">Block</h2>
+    <label class="fl-l" for="fl-bat">Battery consumption</label>
+    <input class="fl-in" id="fl-bat" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 3 batteries">
+    <label class="fl-l" for="fl-notes">Notes about this flight</label>
+    <textarea class="paste-box fl-notes" id="fl-notes" rows="3" placeholder="Anything about this block"></textarea>
+    <div class="sum-acts">
+      <button class="btn" type="button" data-act="fl-close">Close</button>
+      <button class="btn primary" type="button" data-act="fl-save">Save</button>
+    </div>
+    <button class="link danger fl-undo" type="button" data-act="fl-unfly">Not flown</button>
   </div>
 </div>
 <div class="modal top" id="summary" hidden>
@@ -905,7 +934,8 @@ body.has-tabs #main > *{align-content:start}
     return n >= 1 ? "Day " + n : "Before day 1";
   }
   // Tonight's prep belongs to tomorrow's flight day, so after 2pm the first day defaults to tomorrow.
-  function firstDate(){ const t = localToday(); return new Date().getHours() >= 14 ? addDays(t, 1) : t; }
+  // The app's own idea of "the day" is simply today. Moving to tomorrow early (prep the night before) is up to you, with Next day.
+  function firstDate(){ return localToday(); }
   // Card -1 flies on odd days and -2 on even days (Day 34 → D2-2).
   // A non-flight day can shift that: state.camShifts holds dates from which the pattern is flipped
   // ({from, flip}), set when the user keeps an unexpected card.
@@ -1246,7 +1276,16 @@ body.has-tabs #main > *{align-content:start}
   const untouched = d => !d.checked.length && !d.kml && !(d.notes || "").trim() && !(d.blocks || []).length;
   function catchUp(){
     const want = firstDate(), cur = current();
-    if(!cur || !isISO(cur.date) || cur.date >= want) return null;
+    if(!cur || !isISO(cur.date)) return null;
+    // an untouched day the app itself put in the future (old 2pm rule): bring it back to today
+    if(cur.date > want && untouched(cur) && !cur.manual){
+      const prev = prevOf(cur);
+      if(prev && prev.date >= want){ state.days.splice(state.days.indexOf(cur), 1); save(); return current(); }
+      cur.date = want;
+      if(prev) cur.camera = cameraFor(prev.camera, want), cur.extra = (prev.extra || []).map(x => ({drone: x.drone, camera: cameraFor(x.camera, want)}));
+      save(); return current();
+    }
+    if(cur.date >= want) return null;
     if(untouched(cur)){
       const prev = prevOf(cur);
       cur.date = want;
@@ -2393,7 +2432,7 @@ body.has-tabs #main > *{align-content:start}
         const bw = Math.max.apply(null, q.map(v => v[0])) - Math.min.apply(null, q.map(v => v[0]));
         const fitAttr = ' data-bw="' + bw.toFixed(2) + '" data-len="' + short.length + '"';
         if(own){
-          blocks += '<polygon class="m-block' + (set.has(b.id) ? " on" : "") + (b.c ? ' tc" style="--bc:' + b.c : "") + '" data-block="' + b.id + '" points="' + pts + '"><title>' + esc(b.name) + '</title></polygon>';
+          blocks += '<polygon class="m-block' + (set.has(b.id) ? " on" : pickedOf(day).has(b.id) ? " sel" : "") + (b.c ? ' tc" style="--bc:' + b.c : "") + '" data-block="' + b.id + '" points="' + pts + '"><title>' + esc(b.name) + '</title></polygon>';
           labels += '<text class="m-lbl"' + fitAttr + ' x="' + cx.toFixed(2) + '" y="' + cy.toFixed(2) + '">' + short + '</text>';
         } else {
           others += '<polygon class="m-block other' + (b.c ? ' tc" style="--bc:' + b.c : "") + '" points="' + pts + '"/>';
@@ -2516,6 +2555,18 @@ body.has-tabs #main > *{align-content:start}
       pts.set(e.pointerId, {x: e.clientX, y: e.clientY});
       if(pts.size === 1){ start = {x: e.clientX, y: e.clientY, t: Date.now(), target: e.target}; moved = false; }
       else moved = true;
+      holdCancel();
+      // holding a block for 1 s marks it flown and opens its flight notes
+      const poly = pts.size === 1 && e.target.closest && e.target.closest("[data-block]");
+      if(poly){
+        poly.classList.add("holding");
+        blockHold = {poly, t: setTimeout(() => {
+          const id = poly.getAttribute("data-block"); poly.classList.remove("holding");
+          blockHold.fired = true;
+          if(navigator.vibrate) try{ navigator.vibrate(40); }catch(err){}
+          flyBlock(map.day, id);
+        }, 1000)};
+      }
       snapshot();
     });
     svg.addEventListener("pointermove", e => {
@@ -2525,7 +2576,7 @@ body.has-tabs #main > *{align-content:start}
       if(pts.size === 1){
         const p0 = snap.pts.get(e.pointerId); if(!p0) return;
         const dx = e.clientX - p0.x, dy = e.clientY - p0.y;
-        if(Math.abs(dx) + Math.abs(dy) > 8) moved = true;
+        if(Math.abs(dx) + Math.abs(dy) > 8){ moved = true; holdCancel(); }
         // Locked: one finger scrolls the page or taps a block. Unlocked (after a pinch): it moves the map.
         if(moved && (e.pointerType !== "touch" || map.free)) setVB({x: v.x - dx * v.w / r.width, y: v.y - dy * v.h / r.height, w: v.w, h: v.h});
       } else if(pts.size >= 2){
@@ -2543,18 +2594,69 @@ body.has-tabs #main > *{align-content:start}
     });
     const end = e => {
       if(!pts.has(e.pointerId)) return;
-      const wasTap = pts.size === 1 && !moved && start && Date.now() - start.t < 600 && e.type === "pointerup";
+      const fired = blockHold && blockHold.fired;
+      holdCancel(); blockHold = null;
+      const wasTap = !fired && pts.size === 1 && !moved && start && Date.now() - start.t < 600 && e.type === "pointerup";
       pts.delete(e.pointerId);
       if(wasTap){
         const poly = start.target && start.target.closest && start.target.closest("[data-block]");
-        if(map.mode === "mesh") meshTapAt(start.x, start.y, poly && poly.getAttribute("data-block"));
-        else if(poly) toggleBlock(map.day, poly.getAttribute("data-block"));
+        if(poly) blockTap(map.day, poly.getAttribute("data-block"));
       }
       snapshot();
     };
     svg.addEventListener("pointerup", end);
     svg.addEventListener("pointercancel", end);
     svg.addEventListener("wheel", e => { e.preventDefault(); setFree(true); zoomAt(Math.exp(e.deltaY * 0.0015), e.clientX, e.clientY); }, {passive: false});
+  }
+  let blockHold = null;
+  function holdCancel(){ if(blockHold && !blockHold.fired){ clearTimeout(blockHold.t); blockHold.poly.classList.remove("holding"); } }
+  // Tap: pick a block (dashed), tap again to unpick; several can be picked. A flown block opens its notes instead.
+  const picked = new Map();     // day id -> Set of picked block ids (just for now, not saved)
+  const pickedOf = day => { if(!picked.has(day.id)) picked.set(day.id, new Set()); return picked.get(day.id); };
+  function blockTap(day, id){
+    if(day.blocks.includes(id)){ openFlight(day, id); return; }
+    const s = pickedOf(day);
+    if(s.has(id)) s.delete(id); else s.add(id);
+    const el = map && map.svg.querySelector('[data-block="' + id + '"]'); if(el) el.classList.toggle("sel", s.has(id));
+  }
+  // Hold: it's flown. Then the notes and battery for that flight.
+  function flyBlock(day, id){
+    pickedOf(day).delete(id);
+    if(!day.blocks.includes(id)){ day.blocks.push(id); }
+    day.flights = day.flights || {};
+    if(!day.flights[id]) day.flights[id] = {t: Date.now(), notes: "", bat: ""};
+    save(); render();
+    openFlight(day, id);
+  }
+  // the block's code as the map shows it (the day's shared prefix, like "CB-D43-", left off)
+  const blockName = (day, id) => {
+    const all = day.kml ? day.kml.groups.flatMap(g => g.blocks) : [], b = all.find(x => x.id === id);
+    if(!b) return id;
+    const pre = shortPrefix(all.map(x => x.name));
+    return pre && b.name.startsWith(pre) ? b.name.slice(pre.length) : b.name;
+  };
+  function openFlight(day, id){
+    day.flights = day.flights || {};
+    const f = day.flights[id] || {notes: "", bat: ""};
+    $("#fl-title").textContent = blockName(day, id);
+    $("#fl-notes").value = f.notes || ""; $("#fl-bat").value = f.bat || "";
+    $("#flight").dataset.day = day.id; $("#flight").dataset.block = id;
+    $("#flight").hidden = false;
+  }
+  function closeFlight(saveIt){
+    const box = $("#flight"), day = getDay(box.dataset.day), id = box.dataset.block;
+    if(saveIt && day && day.blocks.includes(id)){
+      day.flights = day.flights || {};
+      day.flights[id] = Object.assign(day.flights[id] || {t: Date.now()}, {notes: $("#fl-notes").value.trim(), bat: $("#fl-bat").value.trim()});
+      save(); render();
+    }
+    box.hidden = true;
+  }
+  function unflyBlock(){
+    const box = $("#flight"), day = getDay(box.dataset.day), id = box.dataset.block;
+    if(day){ day.blocks = day.blocks.filter(b => b !== id); if(day.flights) delete day.flights[id]; save(); render(); }
+    box.hidden = true;
+    toast(blockName(day, id) + " set back to not flown");
   }
   function drawMe(){
     const g = $("#m-me");
@@ -3111,6 +3213,10 @@ body.has-tabs #main > *{align-content:start}
     }
     else if(act === "share-summary"){ closeMenu(); openSummary(); }
     else if(act === "sum-close"){ closeSummary(); }
+    else if(act === "fl-save"){ closeFlight(true); }
+    else if(act === "fl-open"){ const d = getDay(view.dayId); if(d) openFlight(d, b.dataset.block); }
+    else if(act === "fl-close"){ closeFlight(false); }
+    else if(act === "fl-unfly"){ if(confirmTap(b, "Tap again")) unflyBlock(); }
     else if(act === "paste-md"){ closeMenu(); openSheet("paste"); }
     else if(act === "paste-use"){ usePasted(); }
     else if(act === "paste-cancel"){ closeSheet(); }
@@ -3211,6 +3317,7 @@ body.has-tabs #main > *{align-content:start}
     else if(act === "next-day"){
       const cur = current();
       const nd = makeDay(cur);
+      nd.manual = true;                 // you moved on yourself: the app leaves this day alone, even if it's tomorrow
       state.days.push(nd); save();
       go({mode:"day", dayId:nd.id});
       toast("Planning " + dayLabel(nd.date), {label:"Undo", fn: () => {
@@ -4225,12 +4332,18 @@ body.has-tabs #main > *{align-content:start}
         : "") +
       kvRow(n, isMe, "pos", hasPos ? '<button class="mn-coords mono" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '" aria-label="Copy coordinates">' + coords + '</button>' : '<span class="mn-none">none yet</span>', hasPos ? n.posT : null) +
       (isMe ? "" : kvRow(n, isMe, "bat", n.bat == null ? '<span class="mn-none">not shared yet</span>' : [b.t, n.bat > 100 ? PLUG : "", n.volt ? '<span class="mn-volt">' + n.volt.toFixed(2) + " V</span>" : ""].filter(Boolean).join('<span class="mn-volt"> · </span>'), n.bat == null ? null : n.batT)) +
-      (isMe ? "" : '<div class="mn-line"><span class="mn-sym" title="Hops">' + BUNNY + '</span><span class="mn-v">' + (n.hops != null ? n.hops : "–") + '</span><span class="mn-age mn-type">' + linkType(n) + '</span></div>') +
       (renaming ? "" : '<p class="mn-ident">' + esc([n.long, hex(n.num).slice(-4), hwName(n)].filter(Boolean).join(" · ")) + '</p>') +
       '</div>';
   }
+  // Only starred LoRas are listed (all still show on the map); "Show all" lists the rest until you hide them again.
+  let meshAll = false; try{ meshAll = localStorage.getItem("flightDayLog.meshAll") === "1"; }catch(e){}
   function meshListHTML(){
-    const {shown, hidden} = meshNodes(), me = meshMine(), store = meshStore(), my = store[String(me)];
+    const all = meshNodes(), me = meshMine(), store = meshStore(), my = store[String(me)];
+    const anyStar = all.shown.some(starred);
+    const shown = anyStar && !meshAll ? all.shown.filter(n => starred(n) || n.num === meshSel) : all.shown;
+    const unstarred = anyStar ? all.shown.filter(n => !starred(n)).length : 0;
+    const hidden = all.hidden;
+    const allBtn = unstarred ? '<button class="link mn-more" type="button" id="b-mesh-all" data-act="mesh-all">' + (meshAll ? "Show starred only" : "Show " + unstarred + " more") + '</button>' : "";
     if(!shown.length) return '<p class="mesh-empty">' + (radio.state === "syncing" ? "Loading nodes…" : "No nodes yet.") + '</p>';
     const rows = shown.map(n => {
       const b = batText(n), isMe = n.num === me, sel = n.num === meshSel;
@@ -4243,8 +4356,8 @@ body.has-tabs #main > *{align-content:start}
         '<span class="mn-end">' + (sel ? starBtn(n) : '<span class="mn-bat ' + b.c + '">' + batIcon(n) + '<span>' + b.t + '</span></span>') + '</span></div>' +
         (sel ? detailHTML(n, isMe) : "") + '</li>';
     }).join("");
-    return '<ul class="card mn-list">' + rows + '</ul>' +
-      (hidden ? '<button class="link mn-more" type="button" id="b-mesh-old" data-act="mesh-old">' + (meshOld ? "Hide nodes not heard today" : "Show " + hidden + " not heard today") + '</button>' : "");
+    return '<ul class="card mn-list">' + rows + '</ul>' + allBtn +
+      (hidden && (meshAll || !anyStar) ? '<button class="link mn-more" type="button" id="b-mesh-old" data-act="mesh-old">' + (meshOld ? "Hide nodes not heard today" : "Show " + hidden + " not heard today") + '</button>' : "");
   }
   function meshHasPositions(){ return Object.values(meshStore()).some(n => n.lat != null); }
   // The map tab: the day's blocks (tap to tick) with the radios on the same map, then the radio list.
@@ -4271,7 +4384,24 @@ body.has-tabs #main > *{align-content:start}
     const head = day.kml ? '<div class="blk-head"><div class="blk-tot"><span class="blk-big">' + bs.done + "/" + bs.total + '</span> <span>blocks flown</span></div>' +
       '<div class="blk-ha">' + fmtHa(bs.doneHa) + " of " + fmtHa(bs.totalHa) + ' ha</div></div>' : "";
     const prev = '<div class="sum-prevs" id="sum-prev"></div>';
-    return '<div class="blk-tab sum-tab">' + head + prev + (cut >= 0 ? h.slice(cut) : "");
+    const fl = flightsHTML(day);
+    return '<div class="blk-tab sum-tab">' + head + prev + fl + (cut >= 0 ? h.slice(cut) : "");
+  }
+  // Flown blocks with their battery use and notes. For you only: Share sends the general notes, not these.
+  function flightsHTML(day){
+    const ids = (day.blocks || []).slice();
+    if(!ids.length) return "";
+    const fl = day.flights || {};
+    ids.sort((a, b) => ((fl[a] && fl[a].t) || 0) - ((fl[b] && fl[b].t) || 0));
+    const rows = ids.map(id => {
+      const f = fl[id] || {};
+      return '<li><button class="fl-row" type="button" data-act="fl-open" data-block="' + esc(id) + '">' +
+        '<span class="fl-n">' + esc(blockName(day, id)) + '</span>' +
+        '<span class="fl-b">' + (f.bat ? esc(f.bat) : '<span class="muted">battery –</span>') + '</span>' +
+        (f.notes ? '<span class="fl-t">' + esc(f.notes) + '</span>' : "") + '</button></li>';
+    }).join("");
+    return '<section class="sec" id="sec-flights"><div class="sec-head" style="pointer-events:none"><span class="sec-titles"><span class="sec-name small-name">Flights</span></span></div>' +
+      '<ul class="card fl-list">' + rows + '</ul></section>';
   }
   // The same picture Share sends, drawn into the Summary tab.
   function summaryPreview(day){
@@ -4391,6 +4521,7 @@ body.has-tabs #main > *{align-content:start}
     else if(act === "mesh-demo-stop"){ stopDemo(); refit(); }
     else if(act === "mesh-sel"){ meshSel = meshSel === num ? null : num; meshChanged(true); if(meshSel != null) setTimeout(() => meshFocus(num), 30); }
     else if(act === "mesh-ask") askNode(num, b.dataset.kind === "pos" ? "pos" : "bat");
+    else if(act === "mesh-all"){ meshAll = !meshAll; try{ localStorage.setItem("flightDayLog.meshAll", meshAll ? "1" : "0"); }catch(e){} meshChanged(true); }
     else if(act === "mesh-copylink"){
       const u = location.href.split("#")[0];
       (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => {}, () => toast(u));
