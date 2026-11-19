@@ -292,6 +292,47 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 .fl-in{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font:inherit;font-size:16px}
 .fl-notes{min-height:84px}
 .fl-undo{justify-self:center;margin-top:-6px}
+.fl-lrow{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:-12px}
+.fl-lrow .fl-l{margin:0}
+.fl-sub{font-weight:500;opacity:.8}
+.fl-iss{padding:4px 0;font-size:calc(14px * var(--fs))}
+.fl-iss:disabled{color:var(--muted);font-weight:500}
+.vis-seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+.vis-seg button{min-height:40px;border:0;border-radius:9px;background:none;color:var(--muted);font:inherit;font-weight:600}
+.vis-seg button[aria-checked="true"]{background:var(--accent);color:var(--accent-ink)}
+.vis-note{margin:-4px 0 0 !important;color:var(--muted);font-size:calc(14px * var(--fs));text-align:center}
+/* Issues */
+.iss-head{align-items:baseline}
+.iss-head .sec-head{pointer-events:none;flex:1}
+#iss-count{padding-right:4px}
+.iss .txt{display:grid;gap:2px}
+.iss-since{font-size:calc(13px * var(--fs));font-weight:500;color:var(--muted);text-decoration:none}
+.vis{flex:none;font-size:calc(12px * var(--fs));font-weight:600;padding:2px 8px;border-radius:10px;border:1px solid var(--line-strong);color:var(--muted)}
+.vis.pub{border-color:var(--accent);color:var(--accent)}
+.item.on .vis{opacity:.5}
+.item.iss{transition:background-color .4s ease}
+.item.iss.holding{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+.iss-add,.add-row{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:0 16px;border:0;background:none;color:var(--accent);font:inherit;font-weight:600;text-align:left}
+.iss-card .items + .iss-add{border-top:1px solid var(--line)}
+.iss-add .plus,.add-row .plus{color:var(--accent);width:auto}
+.add-row{border-top:1px solid var(--line)}
+.iss-chip .n{color:var(--danger)}
+/* Notes */
+.notes-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:2px 2px}
+.notes-head .sec-titles{display:grid}
+.nl-list{list-style:none;margin:0;padding:0}
+.nl-list li{border-bottom:1px solid var(--line)}
+.nl{display:grid;grid-template-columns:auto 1fr;gap:10px;width:100%;padding:12px 16px;border:0;background:none;color:var(--ink);font:inherit;text-align:left;align-items:baseline}
+.nl-k{font-weight:700;font-size:calc(14px * var(--fs))}
+.nl-t{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.4}
+/* Edit: drag to reorder */
+.erow{padding-left:0}
+.drag-h{flex:none;width:34px;align-self:stretch;display:grid;place-items:center;color:var(--muted);touch-action:none;cursor:grab;opacity:.7}
+.drag-h svg{width:10px;height:17px}
+.erow.dragging{background:var(--accent-soft);border-radius:10px;position:relative;z-index:2;box-shadow:0 6px 18px rgb(0 0 0 / .25)}
+.erow.dragging .drag-h{color:var(--accent);opacity:1}
+.is-dragging{user-select:none;-webkit-user-select:none}
+.is-dragging .e-items{min-height:28px}
 /* with the picture above it, the text box is shorter so Close and Share stay on screen */
 .sum-img:not([hidden]) ~ .sum-box{min-height:0;height:min(120px, 18vh)}
 .btn.big{min-height:50px;font-size:calc(16px * var(--fs))}
@@ -737,6 +778,9 @@ body.has-tabs #main > *{align-content:start}
 .fl-n{font-weight:700}
 .fl-b{font-weight:600;color:var(--ink)}
 .fl-t{grid-column:1 / -1;color:var(--muted);font-size:calc(14px * var(--fs));line-height:1.4;white-space:pre-wrap}
+
+.fl-p{display:flex;gap:6px;align-items:baseline}
+.fl-p svg{flex:none;width:12px;height:12px;transform:translateY(1px)}
 </style>
 </head>
 <body>
@@ -766,13 +810,32 @@ body.has-tabs #main > *{align-content:start}
     <h2 id="fl-title">Block</h2>
     <label class="fl-l" for="fl-bat">Battery consumption</label>
     <input class="fl-in" id="fl-bat" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 3 batteries">
-    <label class="fl-l" for="fl-notes">Notes about this flight</label>
-    <textarea class="paste-box fl-notes" id="fl-notes" rows="3" placeholder="Anything about this block"></textarea>
+    <div class="fl-lrow"><label class="fl-l" for="fl-pub">Public note <span class="fl-sub">· shared</span></label><button class="link fl-iss" type="button" id="fl-iss-pub" data-act="fl-issue" data-v="pub">Make issue</button></div>
+    <textarea class="paste-box fl-notes" id="fl-pub" rows="2" placeholder="For the team"></textarea>
+    <div class="fl-lrow"><label class="fl-l" for="fl-priv">Private note <span class="fl-sub">· just you</span></label><button class="link fl-iss" type="button" id="fl-iss-priv" data-act="fl-issue" data-v="priv">Make issue</button></div>
+    <textarea class="paste-box fl-notes" id="fl-priv" rows="2" placeholder="Just for you"></textarea>
     <div class="sum-acts">
       <button class="btn" type="button" data-act="fl-close">Close</button>
       <button class="btn primary" type="button" data-act="fl-save">Save</button>
     </div>
     <button class="link danger fl-undo" type="button" data-act="fl-unfly">Not flown</button>
+  </div>
+</div>
+<div class="modal top" id="issue" hidden>
+  <div class="modal-card sheet" role="dialog" aria-modal="true" aria-labelledby="is-title">
+    <h2 id="is-title">New issue</h2>
+    <label class="sr" for="is-text">Issue</label>
+    <textarea class="paste-box fl-notes" id="is-text" rows="3" placeholder="What needs sorting out"></textarea>
+    <div class="vis-seg" role="radiogroup" aria-label="Who sees it">
+      <button type="button" role="radio" id="is-priv" data-act="iss-vis" data-v="priv">Private</button>
+      <button type="button" role="radio" id="is-pub" data-act="iss-vis" data-v="pub">Public</button>
+    </div>
+    <p class="vis-note" id="is-note"></p>
+    <div class="sum-acts">
+      <button class="btn" type="button" data-act="iss-cancel">Cancel</button>
+      <button class="btn primary" type="button" data-act="iss-save">Save</button>
+    </div>
+    <button class="link danger fl-undo" type="button" id="is-del" data-act="iss-del" hidden>Delete issue</button>
   </div>
 </div>
 <div class="modal top" id="summary" hidden>
@@ -997,10 +1060,18 @@ body.has-tabs #main > *{align-content:start}
   }
   function normalize(s){
     s.camShifts = Array.isArray(s.camShifts) ? s.camShifts.filter(a => a && isISO(a.from) && typeof a.flip === "boolean") : [];
+    s.issues = Array.isArray(s.issues) ? s.issues.filter(x => x && typeof x.id === "string" && typeof x.text === "string" && isISO(x.from)) : [];
     for(const d of s.days){
       d.drone = typeof d.drone === "string" ? d.drone : "";
       d.camera = typeof d.camera === "string" ? d.camera : "";
       d.notes = typeof d.notes === "string" ? d.notes : "";
+      d.pnotes = typeof d.pnotes === "string" ? d.pnotes : "";
+      // flight notes: "pub" goes out with Share, "priv" stays here (older single notes were never shared, so they're private)
+      if(d.flights && typeof d.flights === "object") for(const f of Object.values(d.flights)){
+        if(!f || typeof f !== "object") continue;
+        if(typeof f.notes === "string"){ if(f.priv == null && f.pub == null) f.priv = f.notes; delete f.notes; }
+        f.pub = typeof f.pub === "string" ? f.pub : ""; f.priv = typeof f.priv === "string" ? f.priv : "";
+      }
       d.collapsed = Array.isArray(d.collapsed) ? d.collapsed : [];
       d.created = d.created || 0;
       d.kml = validKml(d.kml) ? d.kml : null;
@@ -1034,7 +1105,9 @@ body.has-tabs #main > *{align-content:start}
   function saveSoon(){ clearTimeout(saveT); saveT = setTimeout(save, 400); }
 
   let state = load();
-  if(!state) state = {v:1, listVersion:LIST_VERSION, day1:DEFAULT_DAY1, template:clone(SEED), days:[], camShifts:[]};
+  if(!state) state = {v:1, listVersion:LIST_VERSION, day1:DEFAULT_DAY1, template:clone(SEED), days:[], camShifts:[], issues:[]};
+  if(!Array.isArray(state.issues)) state.issues = [];
+  for(const s of state.template.sections) for(const g of s.groups) g.items = g.items.filter(i => i.text.trim());
 
   const current = () => state.days[state.days.length - 1];
   const getDay = id => state.days.find(d => d.id === id) || null;
@@ -1096,6 +1169,7 @@ body.has-tabs #main > *{align-content:start}
   function applyTemplate(){
     const cur = current(); if(!cur) return;
     cur.list = clone(state.template);
+    for(const s of cur.list.sections) for(const g of s.groups) g.items = g.items.filter(i => i.text.trim());
     const ids = new Set(allItems(cur.list).map(i => i.id));
     cur.checked = cur.checked.filter(id => ids.has(id));
     cur.collapsed = cur.collapsed.filter(id => id === "blocks" || cur.list.sections.some(s => s.id === id));
@@ -1136,7 +1210,8 @@ body.has-tabs #main > *{align-content:start}
     let any = false;
     for(const s of day.list.sections) if(secDone(day, s)){ any = true; if(!day.collapsed.includes(s.id)) day.collapsed.push(s.id); }
     const first = nextOpenSection(day, null);
-    if(any && first) jumpTo = first;
+    if(issuesOn(day).some(x => !issueDone(x, day))) jumpTo = "issues";
+    else if(any && first) jumpTo = first;
   }
   function doJump(){
     if(!jumpTo) return;
@@ -1299,7 +1374,7 @@ body.has-tabs #main > *{align-content:start}
 
   // Coming back after missed days: jump to the day being worked on now (today, or tomorrow's prep after 2pm),
   // instead of reopening an old day. An untouched latest day is simply moved to that date.
-  const untouched = d => !d.checked.length && !d.kml && !(d.notes || "").trim() && !(d.blocks || []).length;
+  const untouched = d => !d.checked.length && !d.kml && !(d.notes || "").trim() && !(d.pnotes || "").trim() && !(d.blocks || []).length;
   function catchUp(){
     const want = firstDate(), cur = current();
     if(!cur || !isISO(cur.date)) return null;
@@ -1405,6 +1480,8 @@ body.has-tabs #main > *{align-content:start}
       return '<button class="chip" type="button" id="c-' + s.id + '" data-act="jump" data-target="sec-' + s.id + '" data-chip="' + s.id + '">' +
         '<span>' + esc(s.name || "Untitled") + '</span><span class="n">' + (full ? CHECK : d + "/" + n) + '</span></button>';
     }).join("");
+    const iOpen = issuesOn(day).filter(x => !issueDone(x, day)).length;
+    const issChip = iOpen ? '<button class="chip iss-chip" type="button" id="c-issues" data-act="jump" data-target="sec-issues" data-chip="issues"><span>Issues</span><span class="n">' + iOpen + '</span></button>' : "";
     const bs = blockStats(day);
     $("#tabbar").innerHTML =
       '<button class="tb' + (dayTab === "list" ? " on" : "") + '" type="button" role="tab" id="t-list" aria-selected="' + (dayTab === "list") + '" data-act="tab" data-tab="list">' +
@@ -1426,7 +1503,7 @@ body.has-tabs #main > *{align-content:start}
         DOTS_BTN +
       '</div></div>' +
       (dayTab === "list"
-        ? '<nav class="chips" id="chips" aria-label="Jump to section">' + chips + '</nav>'
+        ? '<nav class="chips" id="chips" aria-label="Jump to section">' + issChip + chips + '</nav>'
         : '<div class="seg-pad"></div>') +
       '</div>';
 
@@ -1449,7 +1526,7 @@ body.has-tabs #main > *{align-content:start}
     if(dayTab === "summary"){
       parts.push(summaryTab(day));
       $("#main").innerHTML = parts.join("");
-      autosize($("#f-notes"));
+      autosize($("#f-notes")); autosize($("#f-pnotes"));
       summaryPreview(day);
       return;
     }
@@ -1488,6 +1565,7 @@ body.has-tabs #main > *{align-content:start}
     parts.push('<div class="drones' + (total > 1 ? " multi" : "") + '">' + droneRows.replace("@@FOOT@@", droneFoot) +
       '<div class="add-drone-row"><button class="pill-add" type="button" id="b-adddrone" data-act="add-drone">+ Drone</button></div></div>');
 
+    parts.push(issuesHTML(day));
     const nD = droneCount(day);
     for(const s of day.list.sections){
       const its = secItems(s), d = its.filter(i => set.has(i.id)).length, n = its.length;
@@ -1599,9 +1677,10 @@ body.has-tabs #main > *{align-content:start}
     $("#main").innerHTML = '<div class="hlist">' + cards + '</div>';
   }
 
+  const GRIP = '<svg viewBox="0 0 12 20" aria-hidden="true"><g fill="currentColor"><circle cx="3.5" cy="5" r="1.5"/><circle cx="8.5" cy="5" r="1.5"/><circle cx="3.5" cy="10" r="1.5"/><circle cx="8.5" cy="10" r="1.5"/><circle cx="3.5" cy="15" r="1.5"/><circle cx="8.5" cy="15" r="1.5"/></g></svg>';
   function itemEditRow(it){
-    return '<li class="erow"><label class="sr" for="ie-' + it.id + '">Item</label>' +
-      '<input class="in" id="ie-' + it.id + '" data-edit="item" data-id="' + it.id + '" value="' + esc(it.text) + '" autocomplete="off" enterkeyhint="done">' +
+    return '<li class="erow" data-id="' + it.id + '"><span class="drag-h" title="Drag to move">' + GRIP + '</span><label class="sr" for="ie-' + it.id + '">Item</label>' +
+      '<input class="in" id="ie-' + it.id + '" data-edit="item" data-id="' + it.id + '" value="' + esc(it.text) + '" placeholder="New item" autocomplete="off" enterkeyhint="next">' +
       '<button class="pd-tog' + (it.perDrone ? " on" : "") + '" type="button" id="pd-' + it.id + '" data-act="per-drone" data-id="' + it.id + '" aria-pressed="' + !!it.perDrone + '" title="Need one per drone">per drone</button>' +
       '<button class="icon" type="button" data-act="del-item" data-id="' + it.id + '" aria-label="Delete ' + esc(it.text) + '">' + XICON + '</button></li>';
   }
@@ -1617,12 +1696,8 @@ body.has-tabs #main > *{align-content:start}
         '<div class="eg-head"><label class="sr" for="gn-' + g.id + '">Group name</label>' +
           '<input class="in in-group" id="gn-' + g.id + '" data-edit="group" data-group="' + g.id + '" value="' + esc(g.name) + '" placeholder="Group name (optional)" autocomplete="off" enterkeyhint="done">' +
           '<button class="icon" type="button" id="dg-' + g.id + '" data-act="del-group" data-group="' + g.id + '" aria-label="Delete group">' + XICON + '</button></div>' +
-        '<ul class="items">' + g.items.map(itemEditRow).join("") + '</ul>' +
-        '<form class="add" data-form="add-item" data-group="' + g.id + '">' +
-          '<label class="sr" for="ai-' + g.id + '">New item</label>' +
-          '<input class="in" id="ai-' + g.id + '" placeholder="Add item" autocomplete="off" enterkeyhint="enter">' +
-          '<button class="pd-tog" type="button" id="aip-' + g.id + '" data-act="pd-new" aria-pressed="false" title="Need one per drone">per drone</button>' +
-          '<button class="add-btn" type="submit" aria-label="Add">+</button></form>' +
+        '<ul class="items e-items" data-group="' + g.id + '">' + g.items.map(itemEditRow).join("") + '</ul>' +
+        '<button class="add-row" type="button" id="ai-' + g.id + '" data-act="add-item" data-group="' + g.id + '"><span class="plus">+</span>Add item</button>' +
         '</div>').join("");
       parts.push('<section class="esec">' +
         '<div class="esec-head"><label class="sr" for="sn-' + s.id + '">Section name</label>' +
@@ -1643,6 +1718,83 @@ body.has-tabs #main > *{align-content:start}
       '<button class="add-btn" type="submit" aria-label="Add">+</button></form>');
     $("#main").innerHTML = parts.join("");
   }
+
+  // A new, empty item row ready to type into (after `afterId`, or at the end of the group).
+  // It's part of the list as you type, so there's nothing to confirm.
+  function newItem(gid, afterId){
+    const g = findTGroup(gid), ul = document.querySelector('.e-items[data-group="' + gid + '"]');
+    if(!g) return;
+    const it = {id: uid("i"), text: ""};
+    const at = afterId ? g.items.findIndex(i => i.id === afterId) : -1;
+    if(at > -1) g.items.splice(at + 1, 0, it); else g.items.push(it);
+    if(ul){
+      const prev = afterId && ul.querySelector('.erow[data-id="' + afterId + '"]');
+      if(prev) prev.insertAdjacentHTML("afterend", itemEditRow(it)); else ul.insertAdjacentHTML("beforeend", itemEditRow(it));
+      const inp = document.getElementById("ie-" + it.id);
+      if(inp){ inp.focus(); const r = inp.closest(".erow").getBoundingClientRect(); if(r.bottom > innerHeight * .55) window.scrollBy({top: r.bottom - innerHeight * .45}); }
+    }
+    save();
+  }
+  // an item left empty disappears once you move on from it
+  document.addEventListener("focusout", e => {
+    const el = e.target;
+    if(!el.dataset || el.dataset.edit !== "item" || el.value.trim()) return;
+    const row = el.closest(".erow");
+    if(e.relatedTarget && row && row.contains(e.relatedTarget)) return;
+    setTimeout(() => {
+      if(document.activeElement === el) return;
+      const id = el.dataset.id;
+      for(const s of state.template.sections) for(const g of s.groups) g.items = g.items.filter(i => i.id !== id || i.text.trim());
+      if(row && !findTItem(id)) row.remove();
+      save();
+    }, 0);
+  });
+  // Drag an item by its handle to move it, within its group or into another.
+  let drag = null;
+  document.addEventListener("pointerdown", e => {
+    const h = e.target.closest && e.target.closest(".drag-h");
+    if(!h || view.mode !== "edit") return;
+    e.preventDefault();
+    try{ h.setPointerCapture(e.pointerId); }catch(err){}
+    const row = h.closest(".erow");
+    if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    drag = {row, id: e.pointerId, y: e.clientY, scroll: setInterval(() => {
+      if(!drag) return;
+      const edge = 70, v = drag.y < edge ? -(edge - drag.y) / 4 : drag.y > innerHeight - edge ? (drag.y - innerHeight + edge) / 4 : 0;
+      if(v){ window.scrollBy(0, v); dragTo(drag.y); }
+    }, 16)};
+    row.classList.add("dragging"); document.body.classList.add("is-dragging");
+    if(navigator.vibrate) try{ navigator.vibrate(15); }catch(err){}
+  });
+  function dragTo(y){
+    const lists = [...document.querySelectorAll(".e-items")];
+    const ul = lists.find(u => { const r = u.getBoundingClientRect(); return y >= r.top - 6 && y <= r.bottom + 6; });
+    if(!ul) return;
+    const rows = [...ul.querySelectorAll(".erow")].filter(r => r !== drag.row);
+    const before = rows.find(r => { const b = r.getBoundingClientRect(); return y < b.top + b.height / 2; });
+    if(before){ if(before.previousElementSibling !== drag.row) ul.insertBefore(drag.row, before); }
+    else if(ul.lastElementChild !== drag.row) ul.appendChild(drag.row);
+  }
+  document.addEventListener("pointermove", e => {
+    if(!drag || e.pointerId !== drag.id) return;
+    e.preventDefault(); drag.y = e.clientY; dragTo(e.clientY);
+  }, {passive: false});
+  const dragEnd = e => {
+    if(!drag || e.pointerId !== drag.id) return;
+    clearInterval(drag.scroll);
+    drag.row.classList.remove("dragging"); document.body.classList.remove("is-dragging");
+    drag = null;
+    // the page order is the new order
+    const byId = new Map();
+    for(const s of state.template.sections) for(const g of s.groups) for(const i of g.items) byId.set(i.id, i);
+    document.querySelectorAll(".e-items").forEach(ul => {
+      const g = findTGroup(ul.dataset.group); if(!g) return;
+      g.items = [...ul.querySelectorAll(".erow")].map(r => byId.get(r.dataset.id)).filter(Boolean);
+    });
+    applyTemplate(); save();
+  };
+  document.addEventListener("pointerup", dragEnd);
+  document.addEventListener("pointercancel", dragEnd);
 
   function renderFoot(){
     const f = $("#foot");
@@ -1714,6 +1866,7 @@ body.has-tabs #main > *{align-content:start}
     if(btn.classList.contains("armed")){
       clearTimeout(btn._t);
       btn.classList.remove("armed");
+      if(btn.dataset.orig != null) btn.innerHTML = btn.dataset.orig;
       return true;
     }
     btn.dataset.orig = btn.innerHTML;
@@ -2391,13 +2544,145 @@ body.has-tabs #main > *{align-content:start}
         '<button class="link" type="button" id="b-kml-change" data-act="kml-load">Load a different KML</button>' +
         '<button class="link danger" type="button" id="b-kml-remove" data-act="kml-remove">Remove KML</button></div>';
     }
-    html += '<section class="sec" id="sec-notes">' +
-      '<div class="sec-head" style="pointer-events:none"><span class="sec-titles"><span class="sec-name small-name">Notes</span></span></div>' +
-      '<div class="card notes-card"><label class="sr" for="f-notes">Notes for this day</label>' +
-      '<textarea class="notes" id="f-notes" data-field="notes" rows="4" placeholder="Any issues, breakages or information that should be shared with the team">' + esc(day.notes) + '</textarea></div></section>' +
+    html += notesHTML(day) +
       '<button class="btn-big' + (day.kml && day.teams != null ? "" : " ghost") + '" type="button" id="b-share" data-act="share-summary">Share day summary</button>';
     return '<div class="blk-tab">' + html + '</div>';
   }
+
+  /* ---------- notes: public goes out with Share, private stays on this phone ---------- */
+  // Each holds the day's flight notes and issues of that kind, then whatever was typed.
+  function noteLines(day, pub){
+    const L = [], fl = day.flights || {};
+    const ids = (day.blocks || []).filter(id => fl[id] && (pub ? fl[id].pub : fl[id].priv));
+    ids.sort((a, b) => (fl[a].t || 0) - (fl[b].t || 0));
+    for(const id of ids) L.push({act: "fl-open", key: "data-block", id, label: blockName(day, id), text: pub ? fl[id].pub : fl[id].priv});
+    for(const x of state.issues) if(x.from === day.date && !!x.pub === pub && !(x.src && x.src.day === day.id && fl[x.src.block] && day.blocks.includes(x.src.block)))
+      L.push({act: "iss-edit", key: "data-id", id: x.id, label: "Issue", text: x.text});
+    return L;
+  }
+  function notesText(day, pub){
+    const t = (pub ? day.notes : day.pnotes || "").trim();
+    return noteLines(day, pub).map(l => l.label + ": " + l.text).concat(t ? [t] : []).join("\n");
+  }
+  function notesHTML(day){
+    const one = pub => {
+      const lines = noteLines(day, pub), f = pub ? "notes" : "pnotes";
+      const rows = lines.map(l => '<li><button class="nl" type="button" data-act="' + l.act + '" ' + l.key + '="' + esc(l.id) + '">' +
+        '<span class="nl-k">' + esc(l.label) + '</span><span class="nl-t">' + esc(l.text) + '</span></button></li>').join("");
+      return '<section class="sec" id="sec-' + f + '">' +
+        '<div class="notes-head"><span class="sec-titles"><span class="sec-name small-name">' + (pub ? "Public notes" : "Private notes") + '</span>' +
+          '<span class="sec-sub">' + (pub ? "Shared with the team" : "Just for you") + '</span></span>' +
+          '<button class="link" type="button" id="b-copy-' + f + '" data-act="copy-notes" data-v="' + (pub ? "pub" : "priv") + '">Copy</button></div>' +
+        '<div class="card notes-card">' + (rows ? '<ul class="nl-list">' + rows + '</ul>' : "") +
+        '<label class="sr" for="f-' + f + '">' + (pub ? "Public notes" : "Private notes") + '</label>' +
+        '<textarea class="notes" id="f-' + f + '" data-field="' + f + '" rows="3" placeholder="' + (pub ? "Anything the team should know" : "Anything just for you") + '">' + esc(pub ? day.notes : day.pnotes || "") + '</textarea></div></section>';
+    };
+    return one(true) + one(false);
+  }
+  function flightsText(day){
+    const fl = day.flights || {}, ids = (day.blocks || []).slice();
+    ids.sort((a, b) => ((fl[a] && fl[a].t) || 0) - ((fl[b] && fl[b].t) || 0));
+    return ids.map(id => {
+      const f = fl[id] || {}, L = [blockName(day, id) + (f.bat ? " · " + f.bat : "")];
+      if(f.pub) L.push("  " + f.pub);
+      if(f.priv) L.push("  (private) " + f.priv);
+      return L.join("\n");
+    }).join("\n");
+  }
+  async function copyFlash(btn, text){
+    if(!text){ toast("Nothing to copy yet"); return; }
+    await copyText(text);
+    if(!btn) return;
+    clearTimeout(btn._ct); if(btn.dataset.lbl == null) btn.dataset.lbl = btn.textContent;
+    btn.textContent = "Copied"; btn._ct = setTimeout(() => { btn.textContent = btn.dataset.lbl; }, 1400);
+  }
+
+  /* ---------- issues: they stay on the checklist, day after day, until they're ticked ---------- */
+  function issuesOn(day){ return state.issues.filter(x => x.from <= day.date && (!x.done || x.done >= day.date)); }
+  function issueDone(x, day){ return !!(x.done && x.done <= day.date); }
+  function issuesHTML(day){
+    const list = issuesOn(day), open = list.filter(x => !issueDone(x, day)).length;
+    const rows = list.map(x => {
+      const on = issueDone(x, day);
+      return '<li><button class="item iss' + (on ? " on" : "") + '" id="is-' + x.id + '" type="button" role="checkbox" aria-checked="' + on + '" data-act="iss-toggle" data-id="' + x.id + '">' +
+        '<span class="txt">' + esc(x.text) + (x.from < day.date ? '<span class="iss-since">Since ' + esc(dayLabel(x.from)) + '</span>' : "") + '</span>' +
+        '<span class="vis ' + (x.pub ? "pub" : "priv") + '">' + (x.pub ? "Public" : "Private") + '</span>' +
+        '<span class="box">' + CHECK + '</span></button></li>';
+    }).join("");
+    return '<section class="sec" id="sec-issues"><div class="sec-row iss-head">' +
+      '<div class="sec-head"><span class="sec-titles"><span class="sec-name">Issues</span></span></div>' +
+      '<span class="sec-count' + (list.length && !open ? " full" : "") + '" id="iss-count">' + (list.length ? open + " open" : "") + '</span></div>' +
+      '<div class="sec-body"><div class="card iss-card">' + (rows ? '<ul class="items">' + rows + '</ul>' : "") +
+      '<button class="iss-add" type="button" id="b-iss-new" data-act="iss-new"><span class="plus">+</span>Add an issue</button></div></div></section>';
+  }
+  function refreshIssueCount(day){
+    const list = issuesOn(day), open = list.filter(x => !issueDone(x, day)).length, c = $("#iss-count");
+    if(c){ c.textContent = list.length ? open + " open" : ""; c.classList.toggle("full", list.length > 0 && !open); }
+    const ch = document.querySelector('[data-chip="issues"] .n'); if(ch) ch.innerHTML = open ? String(open) : CHECK;
+  }
+  let issHeld = 0, issHold = null;
+  function openIssue(day, id){
+    const x = id ? state.issues.find(i => i.id === id) : null, box = $("#issue");
+    box.dataset.day = day.id; box.dataset.id = x ? x.id : "";
+    $("#is-title").textContent = x ? "Issue" : "New issue";
+    $("#is-text").value = x ? x.text : "";
+    issVis(x ? !!x.pub : false);
+    const del = $("#is-del"); del.hidden = !x; clearTimeout(del._t); del.classList.remove("armed"); del.textContent = "Delete issue";
+    box.hidden = false;
+    if(!x) setTimeout(() => $("#is-text").focus(), 50);
+  }
+  function issVis(pub){
+    $("#issue").dataset.pub = pub ? "1" : "";
+    $("#is-pub").setAttribute("aria-checked", String(pub)); $("#is-priv").setAttribute("aria-checked", String(!pub));
+    $("#is-note").textContent = pub ? "Goes in the public notes, so Share sends it." : "Goes in your private notes. Not shared.";
+  }
+  function saveIssue(){
+    const box = $("#issue"), day = getDay(box.dataset.day), text = $("#is-text").value.trim(), pub = !!box.dataset.pub;
+    if(!text){ box.hidden = true; return; }
+    const x = state.issues.find(i => i.id === box.dataset.id);
+    if(x){ x.text = text; x.pub = pub; }
+    else if(day) state.issues.push({id: uid("x"), text, pub, from: day.date, t: Date.now(), done: null});
+    box.hidden = true; save(); render();
+  }
+  function delIssue(){
+    const box = $("#issue"); state.issues = state.issues.filter(i => i.id !== box.dataset.id);
+    box.hidden = true; save(); render();
+  }
+  // a flight note made into an issue keeps a link to its block, so the button can say it's done
+  function flIssueBtns(day, id){
+    for(const v of ["pub", "priv"]){
+      const has = state.issues.some(x => x.src && x.src.day === day.id && x.src.block === id && x.src.kind === v);
+      const b = $("#fl-iss-" + v); b.textContent = has ? "In issues ✓" : "Make issue"; b.disabled = has;
+    }
+  }
+  function flightIssue(pub){
+    const box = $("#flight"), day = getDay(box.dataset.day), id = box.dataset.block, v = pub ? "pub" : "priv";
+    const note = $("#fl-" + v).value.trim();
+    if(!day) return;
+    if(!note){ toast("Write the note first"); $("#fl-" + v).focus(); return; }
+    day.flights = day.flights || {};
+    day.flights[id] = Object.assign(day.flights[id] || {t: Date.now()}, {pub: $("#fl-pub").value.trim(), priv: $("#fl-priv").value.trim(), bat: $("#fl-bat").value.trim()});
+    state.issues.push({id: uid("x"), text: blockName(day, id) + ": " + note, pub, from: day.date, t: Date.now(), done: null, src: {day: day.id, block: id, kind: v}});
+    save(); flIssueBtns(day, id);
+    toast("Added to issues");
+  }
+  // holding an issue opens it to edit
+  document.addEventListener("pointerdown", e => {
+    const b = e.target.closest && e.target.closest('[data-act="iss-toggle"]'); if(!b) return;
+    const x0 = e.clientX, y0 = e.clientY;
+    const stop = () => { if(issHold){ clearTimeout(issHold.t); issHold.b.classList.remove("holding"); issHold = null; } };
+    stop();
+    issHold = {b, x0, y0, stop, t: setTimeout(() => {
+      issHeld = Date.now(); b.classList.remove("holding"); issHold = null;
+      if(navigator.vibrate) try{ navigator.vibrate(30); }catch(err){}
+      const day = getDay(view.dayId); if(day) openIssue(day, b.dataset.id);
+    }, 600)};
+    setTimeout(() => { if(issHold && issHold.b === b) b.classList.add("holding"); }, 200);
+  });
+  document.addEventListener("pointermove", e => { if(issHold && Math.abs(e.clientX - issHold.x0) + Math.abs(e.clientY - issHold.y0) > 8) issHold.stop(); }, {passive: true});
+  document.addEventListener("pointerup", () => { if(issHold) issHold.stop(); });
+  document.addEventListener("pointercancel", () => { if(issHold) issHold.stop(); });
+  document.addEventListener("contextmenu", e => { if(e.target.closest && e.target.closest('[data-act="iss-toggle"]')) e.preventDefault(); });
 
   /* ---------- the map (SVG drawn from the KML, works offline) ---------- */
   const mapViews = new Map();   // dayId -> viewBox, so the map stays where you left it
@@ -2591,7 +2876,7 @@ body.has-tabs #main > *{align-content:start}
           const id = poly.getAttribute("data-block"); poly.classList.remove("holding");
           blockHold.fired = true;
           if(navigator.vibrate) try{ navigator.vibrate(40); }catch(err){}
-          flyBlock(map.day, id);
+          if(map.day.blocks.includes(id)) unflyHold(map.day, id); else flyBlock(map.day, id);
         }, 1000)};
       }
       snapshot();
@@ -2651,7 +2936,8 @@ body.has-tabs #main > *{align-content:start}
     pickedOf(day).delete(id);
     if(!day.blocks.includes(id)){ day.blocks.push(id); }
     day.flights = day.flights || {};
-    if(!day.flights[id]) day.flights[id] = {t: Date.now(), notes: "", bat: ""};
+    if(!day.flights[id]) day.flights[id] = {t: Date.now(), pub: "", priv: "", bat: ""};
+    else day.flights[id].t = day.flights[id].t || Date.now();
     save(); render();
     openFlight(day, id);
   }
@@ -2664,9 +2950,11 @@ body.has-tabs #main > *{align-content:start}
   };
   function openFlight(day, id){
     day.flights = day.flights || {};
-    const f = day.flights[id] || {notes: "", bat: ""};
+    const f = day.flights[id] || {pub: "", priv: "", bat: ""};
     $("#fl-title").textContent = blockName(day, id);
-    $("#fl-notes").value = f.notes || ""; $("#fl-bat").value = f.bat || "";
+    $("#fl-pub").value = f.pub || ""; $("#fl-priv").value = f.priv || ""; $("#fl-bat").value = f.bat || "";
+    flIssueBtns(day, id);
+    const un = $("#flight .fl-undo"); clearTimeout(un._t); un.classList.remove("armed"); un.textContent = "Not flown";
     $("#flight").dataset.day = day.id; $("#flight").dataset.block = id;
     $("#flight").hidden = false;
   }
@@ -2674,10 +2962,15 @@ body.has-tabs #main > *{align-content:start}
     const box = $("#flight"), day = getDay(box.dataset.day), id = box.dataset.block;
     if(saveIt && day && day.blocks.includes(id)){
       day.flights = day.flights || {};
-      day.flights[id] = Object.assign(day.flights[id] || {t: Date.now()}, {notes: $("#fl-notes").value.trim(), bat: $("#fl-bat").value.trim()});
+      day.flights[id] = Object.assign(day.flights[id] || {t: Date.now()}, {pub: $("#fl-pub").value.trim(), priv: $("#fl-priv").value.trim(), bat: $("#fl-bat").value.trim()});
       save(); render();
     }
     box.hidden = true;
+  }
+  function unflyHold(day, id){
+    day.blocks = day.blocks.filter(b => b !== id);
+    save(); render();
+    toast(blockName(day, id) + " set back to not flown", {label: "Undo", fn: () => { if(!day.blocks.includes(id)) day.blocks.push(id); save(); render(); }});
   }
   function unflyBlock(){
     const box = $("#flight"), day = getDay(box.dataset.day), id = box.dataset.block;
@@ -2810,7 +3103,7 @@ body.has-tabs #main > *{align-content:start}
   // so the text is just the notes. Without a picture the text carries everything.
   // WhatsApp formatting: *bold* labels, _italic_ team line, "- " bullets.
   function summaryText(day, withImage){
-    if(withImage) return day.notes.trim();
+    if(withImage) return notesText(day, true);
     const L = [];
     if(teamLabel(day)) L.push("_" + teamLabel(day) + "_");
     const ds = dronesOf(day).filter(d => d.drone.trim() || d.camera.trim());
@@ -2826,7 +3119,8 @@ body.has-tabs #main > *{align-content:start}
       const bs = blockStats(day);
       L.push("", "*Blocks flown:* " + bs.done + " of " + bs.total + (bs.doneHa ? " (" + fmtHa(bs.doneHa) + " ha)" : ""));
     }
-    if(day.notes.trim()) L.push("", "*Notes:*", day.notes.trim());
+    const nt = notesText(day, true);
+    if(nt) L.push("", "*Notes:*", nt);
     return L.join("\n").trim();
   }
 
@@ -3243,7 +3537,24 @@ body.has-tabs #main > *{align-content:start}
     else if(act === "fl-save"){ closeFlight(true); }
     else if(act === "fl-open"){ const d = getDay(view.dayId); if(d) openFlight(d, b.dataset.block); }
     else if(act === "fl-close"){ closeFlight(false); }
-    else if(act === "fl-unfly"){ if(confirmTap(b, "Tap again")) unflyBlock(); }
+    else if(act === "fl-unfly"){ if(confirmTap(b, "Tap again to set not flown")) unflyBlock(); }
+    else if(act === "fl-issue"){ flightIssue(b.dataset.v === "pub"); }
+    else if(act === "iss-new"){ if(day) openIssue(day, null); }
+    else if(act === "iss-edit"){ if(day) openIssue(day, b.dataset.id); }
+    else if(act === "iss-vis"){ issVis(b.dataset.v === "pub"); }
+    else if(act === "iss-save"){ saveIssue(); }
+    else if(act === "iss-cancel"){ $("#issue").hidden = true; }
+    else if(act === "iss-del"){ if(confirmTap(b, "Tap again to delete")) delIssue(); }
+    else if(act === "iss-toggle"){
+      if(!day || Date.now() - issHeld < 700) return;
+      const x = state.issues.find(i => i.id === b.dataset.id); if(!x) return;
+      const on = !!(x.done && x.done <= day.date);
+      x.done = on ? null : day.date;
+      b.classList.toggle("on", !on); b.setAttribute("aria-checked", String(!on));
+      save(); refreshIssueCount(day);
+    }
+    else if(act === "copy-notes"){ copyFlash(b, notesText(day, b.dataset.v === "pub")); }
+    else if(act === "copy-flights"){ copyFlash(b, flightsText(day)); }
     else if(act === "paste-md"){ closeMenu(); openSheet("paste"); }
     else if(act === "paste-use"){ usePasted(); }
     else if(act === "paste-cancel"){ closeSheet(); }
@@ -3412,6 +3723,12 @@ body.has-tabs #main > *{align-content:start}
     /* edit mode */
     else if(act === "done"){
       if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      // a group or section typed but not added with + still counts
+      document.querySelectorAll('form[data-form="add-group"]').forEach(f => {
+        const v = f.querySelector("input").value.trim(), s = findTSection(f.dataset.sec);
+        if(v && s) s.groups.push({id: uid("g"), name: v, items: []});
+      });
+      const asn = $("#as-new"); if(asn && asn.value.trim()) state.template.sections.push({id: uid("s"), name: asn.value.trim(), groups: []});
       for(const s of state.template.sections){
         s.name = s.name.trim() || "Untitled";
         for(const g of s.groups){
@@ -3454,6 +3771,7 @@ body.has-tabs #main > *{align-content:start}
       b.classList.toggle("on", !!it.perDrone); b.setAttribute("aria-pressed", String(!!it.perDrone));
       applyTemplate(); save();
     }
+    else if(act === "add-item"){ newItem(b.dataset.group, null); }
     else if(act === "del-item"){
       const id = b.dataset.id;
       for(const s of state.template.sections) for(const g of s.groups) g.items = g.items.filter(i => i.id !== id);
@@ -3483,7 +3801,7 @@ body.has-tabs #main > *{align-content:start}
       const g = {id:uid("g"), name:v, items:[]};
       s.groups.push(g);
       applyTemplate(); save(); render();
-      const ai = document.getElementById("ai-" + g.id); if(ai) ai.focus();
+      newItem(g.id, null);
     }
     else if(f.dataset.form === "add-section"){
       const s = {id:uid("s"), name:v, groups:[]};
@@ -3506,6 +3824,7 @@ body.has-tabs #main > *{align-content:start}
     }
     if(ds.field){
       const day = getDay(view.dayId); if(!day) return;
+      if(ds.field === "pnotes"){ day.pnotes = el.value; autosize(el); saveSoon(); return; }
       if(ds.field === "notes"){
         day.notes = el.value; autosize(el); saveSoon();
         const c = $("#c-notes");
@@ -4415,7 +4734,7 @@ body.has-tabs #main > *{align-content:start}
     const fl = flightsHTML(day);
     return '<div class="blk-tab sum-tab">' + head + prev + fl + (cut >= 0 ? h.slice(cut) : "");
   }
-  // Flown blocks with their battery use and notes. For you only: Share sends the general notes, not these.
+  // Flown blocks with their battery use and notes. Public flight notes also go in the public notes (and Share); private ones in the private notes.
   function flightsHTML(day){
     const ids = (day.blocks || []).slice();
     if(!ids.length) return "";
@@ -4426,9 +4745,11 @@ body.has-tabs #main > *{align-content:start}
       return '<li><button class="fl-row" type="button" data-act="fl-open" data-block="' + esc(id) + '">' +
         '<span class="fl-n">' + esc(blockName(day, id)) + '</span>' +
         '<span class="fl-b">' + (f.bat ? esc(f.bat) : '<span class="muted">battery –</span>') + '</span>' +
-        (f.notes ? '<span class="fl-t">' + esc(f.notes) + '</span>' : "") + '</button></li>';
+        (f.pub ? '<span class="fl-t">' + esc(f.pub) + '</span>' : "") +
+        (f.priv ? '<span class="fl-t fl-p"><svg viewBox="0 0 16 16" aria-label="Private"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2M3.5 7h9v6.5h-9z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>' + esc(f.priv) + '</span>' : "") + '</button></li>';
     }).join("");
-    return '<section class="sec" id="sec-flights"><div class="sec-head" style="pointer-events:none"><span class="sec-titles"><span class="sec-name small-name">Flights</span></span></div>' +
+    return '<section class="sec" id="sec-flights"><div class="notes-head"><span class="sec-titles"><span class="sec-name small-name">Flights</span></span>' +
+      '<button class="link" type="button" id="b-copy-flights" data-act="copy-flights">Copy</button></div>' +
       '<ul class="card fl-list">' + rows + '</ul></section>';
   }
   // The same picture Share sends, drawn into the Summary tab.
@@ -4724,7 +5045,13 @@ body.has-tabs #main > *{align-content:start}
     if(e.key === "Escape" && (d1Open() || droneOpen())){ closeD1(); closeDronePick(); return; }
     if(e.key === "Escape" && menuOpen()){ closeMenu(); const mb = $("#b-menu"); if(mb) mb.focus(); return; }
     const el = e.target;
+    if(e.key === "Escape" && !$("#issue").hidden){ $("#issue").hidden = true; return; }
     if(e.key === "Enter" && el.dataset && (el.dataset.field === "drone" || el.dataset.field === "camera")) el.blur();
+    if(e.key === "Enter" && el.dataset && el.dataset.edit === "item"){
+      e.preventDefault();
+      const ul = el.closest(".e-items");
+      if(el.value.trim() && ul) newItem(ul.dataset.group, el.dataset.id); else el.blur();
+    }
   });
   document.addEventListener("visibilitychange", () => {
     if(document.visibilityState === "hidden"){ save(); return; }
