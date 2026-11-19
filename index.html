@@ -1114,8 +1114,34 @@ body.has-tabs #main > *{align-content:start}
     };
     for(const s of day.list.sections){
       for(const g of s.groups) if(g.items.length) sync(day.gcol, g.id, g.items.every(i => b.has(i.id)), g.items.every(i => a.has(i.id)));
+      // a whole section done: fold it and move on to the next one that isn't
+      const its = secItems(s);
+      if(its.length){
+        const was = its.every(i => b.has(i.id)), is = its.every(i => a.has(i.id));
+        if(is && !was){ sync(day.collapsed, s.id, false, true); jumpTo = nextOpenSection(day, s.id); }
+        else if(!is && was) sync(day.collapsed, s.id, true, false);
+      }
     }
     return changed;
+  }
+  let jumpTo = null;           // a section to scroll to after the next redraw
+  const secDone = (day, s) => { const its = secItems(s); return its.length > 0 && its.every(i => day.checked.includes(i.id)); };
+  function nextOpenSection(day, afterId){
+    const secs = day.list.sections, i = afterId ? secs.findIndex(s => s.id === afterId) : -1;
+    const s = secs.slice(i + 1).find(x => !secDone(day, x));
+    return s ? s.id : null;
+  }
+  // Opening the app: finished sections fold away and you land on the first one still to do.
+  function foldDone(day){
+    let any = false;
+    for(const s of day.list.sections) if(secDone(day, s)){ any = true; if(!day.collapsed.includes(s.id)) day.collapsed.push(s.id); }
+    const first = nextOpenSection(day, null);
+    if(any && first) jumpTo = first;
+  }
+  function doJump(){
+    if(!jumpTo) return;
+    const el = document.getElementById("sec-" + jumpTo); jumpTo = null;
+    if(el) setTimeout(() => el.scrollIntoView({behavior: reduceMotion ? "auto" : "smooth", block: "start"}), 60);
   }
   function findTSection(id){ return state.template.sections.find(s => s.id === id) || null; }
   function findTGroup(id){ for(const s of state.template.sections) for(const g of s.groups) if(g.id === id) return g; return null; }
@@ -1295,6 +1321,7 @@ body.has-tabs #main > *{align-content:start}
     return current();
   }
   catchUp();
+  foldDone(current());
   let view = {mode:"day", dayId: current().id};
   let foldT = 0;
   let dayTab = "list";
@@ -3241,7 +3268,7 @@ body.has-tabs #main > *{align-content:start}
       const folded = autoCollapse(day, before);
       save(); refreshCounts(day);
       // let the tick show for a moment before the finished group folds away
-      if(folded){ clearTimeout(foldT); foldT = setTimeout(() => { if(view.mode === "day" && dayTab === "list" && view.dayId === day.id) render(); }, 350); }
+      if(folded){ clearTimeout(foldT); foldT = setTimeout(() => { if(view.mode === "day" && dayTab === "list" && view.dayId === day.id){ render(); doJump(); } }, 350); }
     }
     else if(act === "reset-group"){
       if(!day) return;
@@ -3266,7 +3293,7 @@ body.has-tabs #main > *{align-content:start}
       day.checked = day.checked.filter(id => !ids.includes(id));
       if(!all) day.checked.push(...ids);
       autoCollapse(day, before);
-      save(); render();
+      save(); render(); doJump();
     }
     else if(act === "gtoggle"){
       if(!day) return;
@@ -3284,7 +3311,8 @@ body.has-tabs #main > *{align-content:start}
       const before = day.checked.slice();
       day.checked = day.checked.filter(id => !ids.includes(id));
       if(!all) day.checked.push(...ids);
-      save(); render();
+      autoCollapse(day, before);
+      save(); render(); doJump();
       toast((sec.name || "Section") + (all ? " cleared" : " all ticked"), {label:"Undo", fn: () => { day.checked = before; save(); render(); }});
     }
     else if(act === "collapse"){
@@ -4708,6 +4736,7 @@ body.has-tabs #main > *{align-content:start}
   window.addEventListener("pagehide", save);
 
   render();
+  if(dayTab === "list") doJump();
   if(listChanged) toast("Checklist updated to the new list");
   if(window.ResizeObserver) new ResizeObserver(measureHeader).observe($("#top"));
 })();
