@@ -237,6 +237,10 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 .map-wrap{position:relative;padding:0}
 .map{display:block;width:100%;height:min(52vh,460px);touch-action:pan-y;background:var(--map-bg);cursor:grab;user-select:none;-webkit-user-select:none}
 .map-ctl{position:absolute;right:10px;top:10px;display:grid;gap:6px}
+.map-pick{position:absolute;left:10px;top:10px;display:flex;align-items:baseline;gap:8px;padding:8px 12px;border:1px solid var(--line-strong);border-radius:12px;background:color-mix(in srgb,var(--surface) 92%,transparent);color:var(--ink);font:inherit;box-shadow:0 4px 14px rgb(0 0 0 / .25)}
+.map-pick b{font-size:calc(17px * var(--fs));font-variant-numeric:tabular-nums}
+.map-pick span{color:var(--muted);font-size:calc(13px * var(--fs))}
+.map-pick svg{width:12px;height:12px;color:var(--muted);align-self:center}
 .map-btn{width:42px;height:42px;display:grid;place-items:center;padding:0;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:calc(24px * var(--fs));line-height:1;box-shadow:0 2px 8px rgb(0 0 0 / .14)}
 .map-btn svg{width:20px;height:20px}
 .map-btn.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
@@ -294,6 +298,11 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 .fl-undo{justify-self:center;margin-top:-6px}
 .fl-lrow{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:-12px}
 .fl-lrow .fl-l{margin:0}
+.fl-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.fl-ha{color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fl-bats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fl-f{display:grid;gap:6px;min-width:0}
+.fl-f .fl-l{margin:0}
 .fl-sub{font-weight:500;opacity:.8}
 .fl-iss{padding:4px 0;font-size:calc(14px * var(--fs))}
 .fl-iss:disabled{color:var(--muted);font-weight:500}
@@ -781,6 +790,36 @@ body.has-tabs #main > *{align-content:start}
 
 .fl-p{display:flex;gap:6px;align-items:baseline}
 .fl-p svg{flex:none;width:12px;height:12px;transform:translateY(1px)}
+
+/* focus mode */
+.ms-icons{margin-left:auto;display:flex;gap:2px;align-self:center;margin-top:-6px;margin-bottom:-6px;margin-right:-8px}
+.ms-icons .ms-cup{margin:0}
+.ms-head > .ms-focus{margin-left:auto}
+.focus{position:fixed;inset:0;z-index:60;background:var(--bg);color:var(--ink);overflow-y:auto;
+  padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(24px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  display:flex;flex-direction:column;gap:14px}
+.focus[hidden]{display:none}
+body.focusing{overflow:hidden}
+.fo-top{display:flex;align-items:center;gap:10px;padding:6px 0 4px}
+.fo-st{font-size:calc(26px * var(--fs));font-weight:700}
+.fo-since{color:var(--muted)}
+.fo-top .fo-bat{margin-left:auto}
+.fo-x{flex:none;display:grid;place-items:center;width:44px;height:44px;margin-right:-8px;border:0;border-radius:12px;background:none;color:var(--muted)}
+.fo-x svg{width:24px;height:24px}
+.fo-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.fo-n{display:flex;align-items:center;gap:14px;padding:16px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
+.fo-n .mn-badge{min-width:60px;height:42px;font-size:calc(17px * var(--fs))}
+.fo-t{flex:1;min-width:0;display:grid;gap:4px}
+.fo-name{font-size:calc(22px * var(--fs));font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fo-sub{font-size:calc(16px * var(--fs));color:var(--muted)}
+.fo-n.stale .fo-sub{color:var(--warn,#e0af68)}
+.fo-n.old .fo-sub{color:var(--danger)}
+.fo-bat{font-size:calc(20px * var(--fs));font-weight:700;gap:6px}
+.fo-bat .bat-i{width:30px;height:16px}
+.fo-empty{color:var(--muted);text-align:center;margin-top:40px}
+.fo-lock{margin-top:auto;align-self:center;display:flex;align-items:center;gap:8px;min-height:48px;padding:0 18px;border:1px solid var(--line-strong);border-radius:24px;background:none;color:var(--muted);font:inherit;font-weight:600}
+.fo-lock svg{width:18px;height:18px}
+.fo-lock.on{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
 </style>
 </head>
 <body>
@@ -807,9 +846,11 @@ body.has-tabs #main > *{align-content:start}
 </div>
 <div class="modal top" id="flight" hidden>
   <div class="modal-card sheet" role="dialog" aria-modal="true" aria-labelledby="fl-title">
-    <h2 id="fl-title">Block</h2>
-    <label class="fl-l" for="fl-bat">Battery consumption</label>
-    <input class="fl-in" id="fl-bat" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 3 batteries">
+    <div class="fl-top"><h2 id="fl-title">Block</h2><span class="fl-ha" id="fl-ha"></span></div>
+    <div class="fl-bats">
+      <div class="fl-f"><label class="fl-l" for="fl-bname">Battery</label><input class="fl-in" id="fl-bname" type="text" autocomplete="off" autocapitalize="characters" placeholder="Name, e.g. B7"></div>
+      <div class="fl-f"><label class="fl-l" for="fl-bat">Used (mAh)</label><input class="fl-in" id="fl-bat" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 4200"></div>
+    </div>
     <div class="fl-lrow"><label class="fl-l" for="fl-pub">Public note <span class="fl-sub">· shared</span></label><button class="link fl-iss" type="button" id="fl-iss-pub" data-act="fl-issue" data-v="pub">Make issue</button></div>
     <textarea class="paste-box fl-notes" id="fl-pub" rows="2" placeholder="For the team"></textarea>
     <div class="fl-lrow"><label class="fl-l" for="fl-priv">Private note <span class="fl-sub">· just you</span></label><button class="link fl-iss" type="button" id="fl-iss-priv" data-act="fl-issue" data-v="priv">Make issue</button></div>
@@ -2298,6 +2339,8 @@ body.has-tabs #main > *{align-content:start}
     return !!k && typeof k.name === "string" && Array.isArray(k.groups) && k.groups.every(g =>
       g && typeof g.name === "string" && Array.isArray(g.blocks) && g.blocks.every(b => b && typeof b.id === "string" && typeof b.name === "string"));
   }
+  // hectares with one decimal under 100 (12.5 ha), whole above (1 250 ha)
+  function fmtHa1(n){ n = Number(n) || 0; return n < 100 ? String(Math.round(n * 10) / 10) : fmtHa(n); }
   function fmtHa(n){
     return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
   }
@@ -2583,7 +2626,7 @@ body.has-tabs #main > *{align-content:start}
     const fl = day.flights || {}, ids = (day.blocks || []).slice();
     ids.sort((a, b) => ((fl[a] && fl[a].t) || 0) - ((fl[b] && fl[b].t) || 0));
     return ids.map(id => {
-      const f = fl[id] || {}, L = [blockName(day, id) + (f.bat ? " · " + f.bat : "")];
+      const f = fl[id] || {}, L = [[blockName(day, id), batLine(f)].filter(Boolean).join(" · ")];
       if(f.pub) L.push("  " + f.pub);
       if(f.priv) L.push("  (private) " + f.priv);
       return L.join("\n");
@@ -2661,7 +2704,7 @@ body.has-tabs #main > *{align-content:start}
     if(!day) return;
     if(!note){ toast("Write the note first"); $("#fl-" + v).focus(); return; }
     day.flights = day.flights || {};
-    day.flights[id] = Object.assign(day.flights[id] || {t: Date.now()}, {pub: $("#fl-pub").value.trim(), priv: $("#fl-priv").value.trim(), bat: $("#fl-bat").value.trim()});
+    day.flights[id] = Object.assign(day.flights[id] || {t: Date.now()}, flForm());
     state.issues.push({id: uid("x"), text: blockName(day, id) + ": " + note, pub, from: day.date, t: Date.now(), done: null, src: {day: day.id, block: id, kind: v}});
     save(); flIssueBtns(day, id);
     toast("Added to issues");
@@ -2710,6 +2753,7 @@ body.has-tabs #main > *{align-content:start}
     mode = mode || "blocks";
     const svg = $("#map");
     map = null;
+    queueMicrotask(() => updatePick(day));
     if(!svg || (!day.kml && mode !== "mesh")) return;
     const K = day.kml || {groups: [], sections: [], roads: []};
     const P = day.kml ? proj(day) : nodeProj(), set = new Set(day.blocks);
@@ -2933,10 +2977,21 @@ body.has-tabs #main > *{align-content:start}
     const s = pickedOf(day);
     if(s.has(id)) s.delete(id); else s.add(id);
     const el = map && map.svg.querySelector('[data-block="' + id + '"]'); if(el) el.classList.toggle("sel", s.has(id));
+    updatePick(day);
+  }
+  // The picked (dashed) blocks add up in a pill on the map; tap it to unpick them all.
+  function updatePick(day){
+    const wrap = $("#map-wrap"); if(!wrap) return;
+    let pill = $("#map-pick");
+    const s = pickedOf(day), bl = day.kml ? day.kml.groups.flatMap(g => g.blocks).filter(b => s.has(b.id)) : [];
+    if(!bl.length){ if(pill) pill.remove(); return; }
+    if(!pill){ wrap.insertAdjacentHTML("beforeend", '<button class="map-pick" type="button" id="map-pick" data-act="pick-clear" aria-label="Picked blocks. Tap to unpick them all"></button>'); pill = $("#map-pick"); }
+    const ha = bl.reduce((a, b) => a + (b.ha || 0), 0);
+    pill.innerHTML = '<b>' + fmtHa1(ha) + ' ha</b><span>' + bl.length + ' picked</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
   }
   // Hold: it's flown. Then the notes and battery for that flight.
   function flyBlock(day, id){
-    pickedOf(day).delete(id);
+    pickedOf(day).delete(id); updatePick(day);
     if(!day.blocks.includes(id)){ day.blocks.push(id); }
     day.flights = day.flights || {};
     if(!day.flights[id]) day.flights[id] = {t: Date.now(), pub: "", priv: "", bat: ""};
@@ -2951,11 +3006,16 @@ body.has-tabs #main > *{align-content:start}
     const pre = shortPrefix(all.map(x => x.name));
     return pre && b.name.startsWith(pre) ? b.name.slice(pre.length) : b.name;
   };
+  const flForm = () => ({pub: $("#fl-pub").value.trim(), priv: $("#fl-priv").value.trim(), bat: $("#fl-bat").value.trim(), bname: $("#fl-bname").value.trim()});
+  // "B7 · 4200 mAh" (older entries were free text, like "3 batteries")
+  function batLine(f){ return [f.bname, f.bat ? (/^\d+([.,]\d+)?$/.test(f.bat) ? f.bat + " mAh" : f.bat) : ""].filter(Boolean).join(" · "); }
   function openFlight(day, id){
     day.flights = day.flights || {};
     const f = day.flights[id] || {pub: "", priv: "", bat: ""};
     $("#fl-title").textContent = blockName(day, id);
-    $("#fl-pub").value = f.pub || ""; $("#fl-priv").value = f.priv || ""; $("#fl-bat").value = f.bat || "";
+    $("#fl-pub").value = f.pub || ""; $("#fl-priv").value = f.priv || ""; $("#fl-bat").value = f.bat || ""; $("#fl-bname").value = f.bname || "";
+    const blk = day.kml ? day.kml.groups.flatMap(g => g.blocks).find(x => x.id === id) : null;
+    $("#fl-ha").textContent = blk && blk.ha ? fmtHa1(blk.ha) + " ha" : "";
     flIssueBtns(day, id);
     const un = $("#flight .fl-undo"); clearTimeout(un._t); un.classList.remove("armed"); un.textContent = "Not flown";
     $("#flight").dataset.day = day.id; $("#flight").dataset.block = id;
@@ -2965,7 +3025,7 @@ body.has-tabs #main > *{align-content:start}
     const box = $("#flight"), day = getDay(box.dataset.day), id = box.dataset.block;
     if(saveIt && day && day.blocks.includes(id)){
       day.flights = day.flights || {};
-      day.flights[id] = Object.assign(day.flights[id] || {t: Date.now()}, {pub: $("#fl-pub").value.trim(), priv: $("#fl-priv").value.trim(), bat: $("#fl-bat").value.trim()});
+      day.flights[id] = Object.assign(day.flights[id] || {t: Date.now()}, flForm());
       save(); render();
     }
     box.hidden = true;
@@ -3493,7 +3553,8 @@ body.has-tabs #main > *{align-content:start}
       setTheme(t); openThemes();
     }
     else if(act === "mq-yes"){
-      if(lightStep === 1) askLight(2);
+      if(askFn){ const f = askFn; closeAsk(); f(); }
+      else if(lightStep === 1) askLight(2);
       else { closeAsk(); setTheme("light"); }
     }
     else if(act === "mq-no"){ closeAsk(); }
@@ -3541,6 +3602,7 @@ body.has-tabs #main > *{align-content:start}
     else if(act === "fl-open"){ const d = getDay(view.dayId); if(d) openFlight(d, b.dataset.block); }
     else if(act === "fl-close"){ closeFlight(false); }
     else if(act === "fl-unfly"){ if(confirmTap(b, "Tap again to set not flown")) unflyBlock(); }
+    else if(act === "pick-clear"){ if(day){ pickedOf(day).clear(); if(map) map.svg.querySelectorAll(".m-block.sel").forEach(e => e.classList.remove("sel")); updatePick(day); } }
     else if(act === "fl-issue"){ flightIssue(b.dataset.v === "pub"); }
     else if(act === "iss-new"){ if(day) openIssue(day, null); }
     else if(act === "iss-edit"){ if(day) openIssue(day, b.dataset.id); }
@@ -3657,15 +3719,8 @@ body.has-tabs #main > *{align-content:start}
     else if(act === "open-day"){ go({mode:"day", dayId:b.dataset.day}); }
     else if(act === "edit"){ go({mode:"edit"}); }
     else if(act === "next-day"){
-      const cur = current();
-      const nd = makeDay(cur);
-      nd.manual = true;                 // you moved on yourself: the app leaves this day alone, even if it's tomorrow
-      state.days.push(nd); save();
-      go({mode:"day", dayId:nd.id});
-      toast("Planning " + dayLabel(nd.date), {label:"Undo", fn: () => {
-        if(current() === nd){ state.days.pop(); save(); }
-        go({mode:"day", dayId:current().id});
-      }});
+      const nx = addDays(current().date, 1);
+      askDo("Move on to " + dayLabel(nx) + "?", "Start " + dayLabel(nx), "Not yet", nextDay);
     }
     else if(act === "del-day"){
       if(!day) return;
@@ -4481,7 +4536,9 @@ body.has-tabs #main > *{align-content:start}
         '<button class="link" type="button" id="b-mesh-demo" data-act="mesh-demo">Try demo</button>';
     }
     const cup = live && navigator.wakeLock ? '<button class="ms-cup' + (wakeOn ? " on" : "") + '" type="button" aria-pressed="' + wakeOn + '" id="b-mesh-wake" data-act="mesh-wake" aria-label="Keep the screen on">' + CUP + '</button>' : "";
-    head += cup;
+    const hasNodes = Object.keys(meshStore()).length > 0;
+    const foc = hasNodes ? '<button class="ms-cup ms-focus" type="button" id="b-mesh-focus" data-act="mesh-focus" aria-label="Focus mode: just the LoRas, big">' + FOCUS_IC + '</button>' : "";
+    head += (foc && cup ? '<span class="ms-icons">' + foc + cup + '</span>' : foc || cup);
     return '<div class="card ms' + (radio.state === "lost" && !meshDemo ? " lost" : "") + '"><div class="ms-head">' + head + '</div>' + body + meBox +
       '<div class="ms-acts">' + acts + '</div></div>';
   }
@@ -4747,7 +4804,7 @@ body.has-tabs #main > *{align-content:start}
       const f = fl[id] || {};
       return '<li><button class="fl-row" type="button" data-act="fl-open" data-block="' + esc(id) + '">' +
         '<span class="fl-n">' + esc(blockName(day, id)) + '</span>' +
-        '<span class="fl-b">' + (f.bat ? esc(f.bat) : '<span class="muted">battery –</span>') + '</span>' +
+        '<span class="fl-b">' + (batLine(f) ? esc(batLine(f)) : '<span class="muted">battery –</span>') + '</span>' +
         (f.pub ? '<span class="fl-t">' + esc(f.pub) + '</span>' : "") +
         (f.priv ? '<span class="fl-t fl-p"><svg viewBox="0 0 16 16" aria-label="Private"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2M3.5 7h9v6.5h-9z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>' + esc(f.priv) + '</span>' : "") + '</button></li>';
     }).join("");
@@ -4769,6 +4826,8 @@ body.has-tabs #main > *{align-content:start}
   function meshChanged(now){
     if(!meshDemo) meshSave();
     updateMeshTab();
+    if(focusOn && !focusRaf) focusRaf = setTimeout(() => { focusRaf = 0; drawFocus(); }, 300);
+    if(lockNote) pushNote(false);
     if(view.mode !== "day" || dayTab !== "blocks") return;
     if(meshRaf) return;
     const wait = now ? 0 : Math.max(0, 400 - (Date.now() - meshLast));
@@ -4790,7 +4849,105 @@ body.has-tabs #main > *{align-content:start}
     const live = meshDemo || radio.state === "live";
     n.className = "n mdot" + (live ? " live" : radio.state === "lost" ? " lost" : radio.state === "connecting" || radio.state === "syncing" ? " busy" : "");
   }
-  setInterval(() => { if(view.mode === "day" && dayTab === "blocks") meshChanged(); }, 20000);   // keeps the "x min ago" fresh
+  setInterval(() => { if(view.mode === "day" && dayTab === "blocks") meshChanged(); if(focusOn) drawFocus(); }, 20000);
+
+  /* ---------- focus mode: the LoRas, big, nothing else ----------
+     Keeps the screen on while it's open. "Lock screen" also puts the same status in a silent
+     notification that Android shows on the lock screen; it updates while the app is still running. */
+  const FOCUS_IC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5a1 1 0 011-1h4M15 4h4a1 1 0 011 1v4M20 15v4a1 1 0 01-1 1h-4M9 20H5a1 1 0 01-1-1v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/></svg>';
+  let focusOn = false, focusLock = null, focusRaf = 0, lockNote = false, noteLast = 0, noteTimer = 0;
+  try{ lockNote = localStorage.getItem("flightDayLog.lockNote") === "1"; }catch(e){}
+  function focusNodes(){
+    const all = meshNodes(), anyStar = all.shown.some(starred);
+    return anyStar ? all.shown.filter(starred) : all.shown;
+  }
+  function myStatus(){
+    const me = meshStore()[String(meshMine())], b = me ? batText(me) : null;
+    const st = meshDemo ? "Demo" : radio.state === "live" ? "Connected" : radio.state === "lost" ? "Disconnected" : radio.state === "connecting" || radio.state === "syncing" ? "Connecting" : "Not connected";
+    const cls = meshDemo ? "demo" : radio.state === "live" ? "live" : radio.state === "lost" ? "lost" : radio.state === "connecting" || radio.state === "syncing" ? "busy" : "";
+    return {me, b, st, cls, since: radio.state === "lost" && !meshDemo ? ago(radio.lostAt) : ""};
+  }
+  function drawFocus(){
+    const box = $("#focus"); if(!box) return;
+    const ms = myStatus(), my = ms.me;
+    const rows = focusNodes().map(n => {
+      const b = batText(n), d = my ? distTo(my, n) : null;
+      return '<li class="fo-n ' + ageClass(n.heard) + '"><span class="mn-badge ' + ageClass(n.heard) + '">' + esc(nodeShort(n)) + '</span>' +
+        '<span class="fo-t"><span class="fo-name">' + esc(nodeName(n)) + '</span><span class="fo-sub">' + esc([n.heard ? ago(n.heard) : "not heard", d].filter(Boolean).join(" · ")) + '</span></span>' +
+        '<span class="fo-bat mn-bat ' + b.c + '">' + batIcon(n) + '<span>' + b.t + '</span></span></li>';
+    }).join("");
+    box.innerHTML = '<div class="fo-top"><span class="ms-dot ' + ms.cls + '"></span><span class="fo-st">' + ms.st + '</span>' +
+        (ms.since ? '<span class="fo-since">' + esc(ms.since) + '</span>' : "") +
+        (my ? '<span class="fo-bat mn-bat ' + ms.b.c + '">' + batIcon(my) + '<span>' + ms.b.t + '</span></span>' : "") +
+        '<button class="fo-x" type="button" id="b-focus-x" data-act="mesh-focus-close" aria-label="Close focus mode"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button></div>' +
+      (rows ? '<ul class="fo-list">' + rows + '</ul>' : '<p class="fo-empty">No LoRas yet.</p>') +
+      ('Notification' in window && navigator.serviceWorker ? '<button class="fo-lock' + (lockNote ? " on" : "") + '" type="button" id="b-focus-lock" data-act="mesh-focus-lock" aria-pressed="' + lockNote + '">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0110 0v3M5.5 11h13v9.5h-13z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>' +
+        (lockNote ? "On the lock screen" : "Show on lock screen") + '</button>' : "");
+  }
+  async function openFocus(){
+    let box = $("#focus");
+    if(!box){ document.body.insertAdjacentHTML("beforeend", '<div class="focus" id="focus" role="dialog" aria-modal="true" aria-label="LoRa status"></div>'); box = $("#focus"); }
+    focusOn = true; drawFocus(); box.hidden = false; document.body.classList.add("focusing");
+    try{ if(document.documentElement.requestFullscreen && !document.fullscreenElement) await document.documentElement.requestFullscreen({navigationUI: "hide"}); }catch(e){}
+    focusWake();
+  }
+  async function focusWake(){
+    if(focusOn && !focusLock && navigator.wakeLock && document.visibilityState === "visible"){
+      try{ focusLock = await navigator.wakeLock.request("screen"); focusLock.addEventListener("release", () => { focusLock = null; }); }catch(e){}
+    }
+  }
+  function closeFocus(){
+    focusOn = false;
+    const box = $("#focus"); if(box) box.hidden = true;
+    document.body.classList.remove("focusing");
+    if(focusLock){ try{ focusLock.release(); }catch(e){} focusLock = null; }
+    try{ if(document.fullscreenElement) document.exitFullscreen(); }catch(e){}
+  }
+  document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible"){ focusWake(); if(focusOn) drawFocus(); } });
+  document.addEventListener("fullscreenchange", () => { if(!document.fullscreenElement && focusOn) drawFocus(); });
+
+  // the lock-screen notification: one, replaced in place, silent
+  function noteText(){
+    const ms = myStatus();
+    const title = "LoRa " + ms.st.toLowerCase() + (ms.since ? " " + ms.since : "") + (ms.me && ms.b.t ? " · " + ms.b.t : ms.me && ms.b.c === "pl" ? " · plugged in" : "");
+    const my = ms.me;
+    const lines = focusNodes().map(n => {
+      const b = batText(n), d = my ? distTo(my, n) : null;
+      return [nodeName(n), b.t || (b.c === "pl" ? "plugged in" : ""), n.heard ? ago(n.heard) : "not heard", d].filter(Boolean).join(" · ");
+    });
+    return {title, body: lines.join("\n") || "No LoRas yet"};
+  }
+  async function pushNote(force){
+    if(!lockNote || !navigator.serviceWorker) return;
+    const wait = force ? 0 : Math.max(0, 15000 - (Date.now() - noteLast));
+    if(noteTimer && !force) return;
+    clearTimeout(noteTimer);
+    noteTimer = setTimeout(async () => {
+      noteTimer = 0; noteLast = Date.now();
+      try{
+        const reg = await navigator.serviceWorker.ready, t = noteText();
+        await reg.showNotification(t.title, {body: t.body, tag: "lora-status", renotify: false, silent: true, requireInteraction: true, icon: "icon-192.png", data: {url: "./"}});
+      }catch(e){}
+    }, wait);
+  }
+  async function clearNote(){
+    try{ const reg = await navigator.serviceWorker.ready; (await reg.getNotifications({tag: "lora-status"})).forEach(n => n.close()); }catch(e){}
+  }
+  async function toggleLock(){
+    if(!lockNote){
+      if(Notification.permission !== "granted"){
+        let p = "denied"; try{ p = await Notification.requestPermission(); }catch(e){}
+        if(p !== "granted"){ toast("Notifications are blocked for this app. Allow them in the phone's settings.", {ms: 5000}); return; }
+      }
+      lockNote = true; pushNote(true);
+      toast("LoRa status is on the lock screen while the app runs");
+    } else { lockNote = false; clearTimeout(noteTimer); noteTimer = 0; clearNote(); }
+    try{ localStorage.setItem("flightDayLog.lockNote", lockNote ? "1" : "0"); }catch(e){}
+    drawFocus();
+  }
+  setInterval(() => pushNote(false), 60000);
+  if(lockNote) setTimeout(() => pushNote(true), 1500);   // keeps the "x min ago" fresh
 
   // Node dots on the map (called by the map whenever the view changes).
   function drawNodes(){
@@ -4886,6 +5043,9 @@ body.has-tabs #main > *{align-content:start}
     else if(act === "mesh-rename"){ meshRename = num; const li = $("#mesh-list"), st = $("#mesh-status"); if(li) li.innerHTML = meshListHTML(); if(st) st.innerHTML = meshStatusHTML(); const i = document.getElementById("nick-" + num); if(i){ i.focus(); i.select(); fitAboveKeyboard(i.closest(".mn, .ms-me") || i); } }
     else if(act === "mesh-rename-cancel"){ meshRename = null; meshChanged(true); }
     else if(act === "mesh-old"){ meshOld = !meshOld; meshChanged(true); }
+    else if(act === "mesh-focus"){ openFocus(); }
+    else if(act === "mesh-focus-close"){ closeFocus(); }
+    else if(act === "mesh-focus-lock"){ toggleLock(); }
     else if(act === "mesh-wake"){ wakeOn = !wakeOn; try{ localStorage.setItem("flightDayLog.wake", wakeOn ? "1" : "0"); }catch(e){} applyWake(); meshChanged(true); toast(wakeOn ? "Screen will stay on" : "Screen can turn off again"); }
     else return false;
     return true;
@@ -5028,15 +5188,34 @@ body.has-tabs #main > *{align-content:start}
   mainEl.addEventListener("touchend", e => endSwipe(false, e.timeStamp));
   mainEl.addEventListener("touchcancel", () => endSwipe(true));
 
-  /* ---------- light mode confirmations ---------- */
-  let lightStep = 0;
+  // after you confirm: a new day after the current one
+  function nextDay(){
+    const cur = current();
+    const nd = makeDay(cur);
+    nd.manual = true;                 // you moved on yourself: the app leaves this day alone, even if it's tomorrow
+    state.days.push(nd); save();
+    go({mode:"day", dayId:nd.id});
+    toast("Planning " + dayLabel(nd.date), {label:"Undo", fn: () => {
+      if(current() === nd){ state.days.pop(); save(); }
+      go({mode:"day", dayId:current().id});
+    }});
+  }
+  /* ---------- light mode confirmations, and other yes/no questions ---------- */
+  let lightStep = 0, askFn = null;
+  function askDo(q, yes, no, fn){
+    lightStep = 0; askFn = fn;
+    $("#modal-q").textContent = q; $("#mq-yes").textContent = yes; $("#mq-no").textContent = no;
+    $("#modal").hidden = false;
+    $("#mq-no").focus({preventScroll:true});
+  }
   function askLight(step){
     lightStep = step;
+    askFn = null; $("#mq-yes").textContent = "Yes"; $("#mq-no").textContent = "No";
     $("#modal-q").textContent = step === 1 ? "Are you sure?" : "Are you locked in?";
     $("#modal").hidden = false;
     $("#mq-yes").focus({preventScroll:true});
   }
-  function closeAsk(){ lightStep = 0; $("#modal").hidden = true; }
+  function closeAsk(){ lightStep = 0; askFn = null; $("#modal").hidden = true; }
   $("#modal").addEventListener("click", e => { if(e.target.id === "modal") closeAsk(); });
 
   document.addEventListener("keydown", e => {

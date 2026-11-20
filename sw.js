@@ -57,3 +57,12 @@ self.addEventListener("fetch", e => {
     return res;
   })));
 });
+
+// tapping the LoRa status notification opens the app
+self.addEventListener("notificationclick", e => {
+  if(e.notification.tag !== "lora-status") e.notification.close();
+  e.waitUntil(self.clients.matchAll({type: "window", includeUncontrolled: true}).then(cs => {
+    const c = cs[0]; if(c) return c.focus();
+    return self.clients.openWindow("./");
+  }));
+});
