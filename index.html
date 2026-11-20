@@ -2918,6 +2918,9 @@ body.has-tabs #main > *{align-content:start}
     };
     svg.addEventListener("pointerup", end);
     svg.addEventListener("pointercancel", end);
+    // A tap or hold here can open the flight popup under the finger; the phone's follow-up click
+    // would then land on the popup (its Save button or a note box). The map needs no clicks, so drop them.
+    svg.addEventListener("touchend", e => { if(e.cancelable) e.preventDefault(); }, {passive: false});
     svg.addEventListener("wheel", e => { e.preventDefault(); setFree(true); zoomAt(Math.exp(e.deltaY * 0.0015), e.clientX, e.clientY); }, {passive: false});
   }
   let blockHold = null;
