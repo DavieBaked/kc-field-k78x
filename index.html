@@ -298,6 +298,9 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 .fl-undo{justify-self:center;margin-top:-6px}
 .fl-lrow{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:-12px}
 .fl-lrow .fl-l{margin:0}
+.share-box{display:grid;gap:8px;margin-top:4px}
+.share-what{margin:0;text-align:center;color:var(--muted);font-size:calc(14px * var(--fs))}
+.next-big{margin-top:8px}
 .fl-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .fl-ha{color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .fl-bats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -319,8 +322,9 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 .vis{flex:none;font-size:calc(12px * var(--fs));font-weight:600;padding:2px 8px;border-radius:10px;border:1px solid var(--line-strong);color:var(--muted)}
 .vis.pub{border-color:var(--accent);color:var(--accent)}
 .item.on .vis{opacity:.5}
-.item.iss{transition:background-color .4s ease}
-.item.iss.holding{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+.item.iss{position:relative;overflow:hidden}
+.item.iss.iss-hold::after{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--accent) 18%,transparent);transform:scaleX(0);transform-origin:left;animation:iss-fill .4s linear forwards;pointer-events:none}
+@keyframes iss-fill{to{transform:scaleX(1)}}
 .iss-add,.add-row{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:0 16px;border:0;background:none;color:var(--accent);font:inherit;font-weight:600;text-align:left}
 .iss-card .items + .iss-add{border-top:1px solid var(--line)}
 .iss-add .plus,.add-row .plus{color:var(--accent);width:auto}
@@ -820,6 +824,8 @@ body.focusing{overflow:hidden}
 .fo-lock{margin-top:auto;align-self:center;display:flex;align-items:center;gap:8px;min-height:48px;padding:0 18px;border:1px solid var(--line-strong);border-radius:24px;background:none;color:var(--muted);font:inherit;font-weight:600}
 .fo-lock svg{width:18px;height:18px}
 .fo-lock.on{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+
+.fo-more{align-self:center;padding:10px 16px}
 </style>
 </head>
 <body>
@@ -1105,6 +1111,7 @@ body.focusing{overflow:hidden}
     for(const d of s.days){
       d.drone = typeof d.drone === "string" ? d.drone : "";
       d.camera = typeof d.camera === "string" ? d.camera : "";
+      d.sd = typeof d.sd === "string" ? d.sd : "";
       d.notes = typeof d.notes === "string" ? d.notes : "";
       d.pnotes = typeof d.pnotes === "string" ? d.pnotes : "";
       // flight notes: "pub" goes out with Share, "priv" stays here (older single notes were never shared, so they're private)
@@ -1119,7 +1126,7 @@ body.focusing{overflow:hidden}
       d.blocks = Array.isArray(d.blocks) ? d.blocks : [];
       d.gcol = Array.isArray(d.gcol) ? d.gcol : [];
       d.batt = Number.isFinite(d.batt) && d.batt >= 0 ? Math.min(99, Math.round(d.batt)) : null;
-      d.extra = Array.isArray(d.extra) ? d.extra.filter(x => x && typeof x === "object").map(x => ({drone: String(x.drone || ""), camera: String(x.camera || "")})) : [];
+      d.extra = Array.isArray(d.extra) ? d.extra.filter(x => x && typeof x === "object").map(x => ({drone: String(x.drone || ""), camera: String(x.camera || ""), sd: String(x.sd || "")})) : [];
       if(!Array.isArray(d.teams)) d.teams = d.teams === null || d.team === null ? null : (d.team ? [String(d.team)] : []);
       delete d.team;
       if(!d.kml) d.teams = [];
@@ -1156,8 +1163,8 @@ body.focusing{overflow:hidden}
   const secItems = s => s.groups.flatMap(g => g.items);
   const allItems = list => list.sections.flatMap(secItems);
 
-  // Drone 1 lives in day.drone / day.camera; any more drones are in day.extra [{drone, camera}].
-  const dronesOf = day => [{drone: day.drone, camera: day.camera}].concat(day.extra || []);
+  // Drone 1 lives in day.drone / day.camera / day.sd; any more drones are in day.extra [{drone, camera, sd}].
+  const dronesOf = day => [{drone: day.drone, camera: day.camera, sd: day.sd || ""}].concat((day.extra || []).map(x => Object.assign({sd: ""}, x)));
   const droneCount = day => 1 + (day.extra || []).length;
   // Batteries: a "Batteries" item outside the night-before section carries a number. Default is 10 per drone; tap the tag to change it.
   const BATT_PER_DRONE = 10;
@@ -1200,7 +1207,8 @@ body.focusing{overflow:hidden}
       date: date,
       drone: prev ? prev.drone : "",
       camera: prev ? cameraFor(prev.camera, date) : "",
-      extra: prev ? (prev.extra || []).map(x => ({drone: x.drone, camera: cameraFor(x.camera, date)})) : [],
+      sd: prev ? prev.sd || "" : "",
+      extra: prev ? (prev.extra || []).map(x => ({drone: x.drone, camera: cameraFor(x.camera, date), sd: x.sd || ""})) : [],
       batt: prev && prev.batt != null ? prev.batt : null,
       notes: "", checked: [], collapsed: [], gcol: [],
       list: clone(state.template),
@@ -1253,6 +1261,14 @@ body.focusing{overflow:hidden}
     const first = nextOpenSection(day, null);
     if(issuesOn(day).some(x => !issueDone(x, day))) jumpTo = "issues";
     else if(any && first) jumpTo = first;
+  }
+  // Checklist tab: straight to the first section still to do (issues don't count; at the top if nothing's done yet)
+  function listJump(smooth){
+    const day = getDay(view.dayId); if(!day) return;
+    const first = nextOpenSection(day, null);
+    const el = first && first !== (day.list.sections[0] || {}).id ? document.getElementById("sec-" + first) : null;
+    if(el) el.scrollIntoView({behavior: smooth && !reduceMotion ? "smooth" : "auto", block: "start"});
+    else if(smooth) window.scrollTo({top: 0, behavior: reduceMotion ? "auto" : "smooth"});
   }
   function doJump(){
     if(!jumpTo) return;
@@ -1424,14 +1440,14 @@ body.focusing{overflow:hidden}
       const prev = prevOf(cur);
       if(prev && prev.date >= want){ state.days.splice(state.days.indexOf(cur), 1); save(); return current(); }
       cur.date = want;
-      if(prev) cur.camera = cameraFor(prev.camera, want), cur.extra = (prev.extra || []).map(x => ({drone: x.drone, camera: cameraFor(x.camera, want)}));
+      if(prev) cur.camera = cameraFor(prev.camera, want), cur.extra = (prev.extra || []).map(x => ({drone: x.drone, camera: cameraFor(x.camera, want), sd: x.sd || ""}));
       save(); return current();
     }
     if(cur.date >= want) return null;
     if(untouched(cur)){
       const prev = prevOf(cur);
       cur.date = want;
-      if(prev) cur.camera = cameraFor(prev.camera, want), cur.extra = (prev.extra || []).map(x => ({drone: x.drone, camera: cameraFor(x.camera, want)}));
+      if(prev) cur.camera = cameraFor(prev.camera, want), cur.extra = (prev.extra || []).map(x => ({drone: x.drone, camera: cameraFor(x.camera, want), sd: x.sd || ""}));
     } else state.days.push(makeDay(cur, want));
     save();
     return current();
@@ -1595,6 +1611,8 @@ body.focusing{overflow:hidden}
         '<div class="field"><label class="flabel" for="f-camera' + sfx + '">Camera' + (total > 1 ? " " + (i + 1) : "") + '</label>' +
           '<input class="in" id="f-camera' + sfx + '" value="' + esc(d.camera) + '" placeholder="e.g. D1-1" data-field="camera" data-idx="' + i + '" autocomplete="off" autocapitalize="characters" enterkeyhint="done">' +
           (pc ? '<span class="hint">Last ' + esc(pc) + '</span>' : "") + '</div>' +
+        '<div class="field"><label class="flabel" for="f-sd' + sfx + '">SD card' + (total > 1 ? " " + (i + 1) : "") + '</label>' +
+          '<input class="in" id="f-sd' + sfx + '" value="' + esc(d.sd) + '" placeholder="e.g. SD3" data-field="sd" data-idx="' + i + '" autocomplete="off" autocapitalize="characters" enterkeyhint="done"></div>' +
         '<div class="camwarn" id="camwarn' + sfx + '" role="alert" hidden><span id="camwarn-text' + sfx + '"></span>' +
           '<span class="cw-acts"><button class="cw-btn solid" type="button" id="b-camfix' + sfx + '" data-act="cam-fix" data-idx="' + i + '"></button>' +
           '<button class="cw-btn" type="button" id="b-camkeep' + sfx + '" data-act="cam-keep" data-idx="' + i + '"></button></span></div>' +
@@ -2587,8 +2605,13 @@ body.focusing{overflow:hidden}
         '<button class="link" type="button" id="b-kml-change" data-act="kml-load">Load a different KML</button>' +
         '<button class="link danger" type="button" id="b-kml-remove" data-act="kml-remove">Remove KML</button></div>';
     }
-    html += notesHTML(day) +
-      '<button class="btn-big' + (day.kml && day.teams != null ? "" : " ghost") + '" type="button" id="b-share" data-act="share-summary">Share day summary</button>';
+    // what Share sends sits above the button; what stays on this phone sits below it
+    const nx = day === current() ? addDays(day.date, 1) : null;
+    html += notesHTML(day, true) +
+      '<div class="share-box"><button class="btn-big' + (day.kml && day.teams != null ? "" : " ghost") + '" type="button" id="b-share" data-act="share-summary">Share day summary</button>' +
+      '<p class="share-what">Sends the ' + (day.kml ? "picture and " : "") + 'public notes. Nothing below this goes out.</p></div>' +
+      '<!--mine-->' + notesHTML(day, false) +
+      (nx ? '<button class="btn-big ghost next-big" type="button" id="b-next-big" data-act="next-day">Start ' + esc(dayLabel(nx)) + '</button>' : "");
     return '<div class="blk-tab">' + html + '</div>';
   }
 
@@ -2607,7 +2630,7 @@ body.focusing{overflow:hidden}
     const t = (pub ? day.notes : day.pnotes || "").trim();
     return noteLines(day, pub).map(l => l.label + ": " + l.text).concat(t ? [t] : []).join("\n");
   }
-  function notesHTML(day){
+  function notesHTML(day, which){
     const one = pub => {
       const lines = noteLines(day, pub), f = pub ? "notes" : "pnotes";
       const rows = lines.map(l => '<li><button class="nl" type="button" data-act="' + l.act + '" ' + l.key + '="' + esc(l.id) + '">' +
@@ -2620,7 +2643,7 @@ body.focusing{overflow:hidden}
         '<label class="sr" for="f-' + f + '">' + (pub ? "Public notes" : "Private notes") + '</label>' +
         '<textarea class="notes" id="f-' + f + '" data-field="' + f + '" rows="3" placeholder="' + (pub ? "Anything the team should know" : "Anything just for you") + '">' + esc(pub ? day.notes : day.pnotes || "") + '</textarea></div></section>';
     };
-    return one(true) + one(false);
+    return which == null ? one(true) + one(false) : one(which);
   }
   function flightsText(day){
     const fl = day.flights || {}, ids = (day.blocks || []).slice();
@@ -2713,14 +2736,14 @@ body.focusing{overflow:hidden}
   document.addEventListener("pointerdown", e => {
     const b = e.target.closest && e.target.closest('[data-act="iss-toggle"]'); if(!b) return;
     const x0 = e.clientX, y0 = e.clientY;
-    const stop = () => { if(issHold){ clearTimeout(issHold.t); issHold.b.classList.remove("holding"); issHold = null; } };
+    const stop = () => { if(issHold){ clearTimeout(issHold.t); issHold.b.classList.remove("iss-hold"); issHold = null; } };
     stop();
     issHold = {b, x0, y0, stop, t: setTimeout(() => {
-      issHeld = Date.now(); b.classList.remove("holding"); issHold = null;
+      issHeld = Date.now(); b.classList.remove("iss-hold"); issHold = null;
       if(navigator.vibrate) try{ navigator.vibrate(30); }catch(err){}
       const day = getDay(view.dayId); if(day) openIssue(day, b.dataset.id);
     }, 600)};
-    setTimeout(() => { if(issHold && issHold.b === b) b.classList.add("holding"); }, 200);
+    setTimeout(() => { if(issHold && issHold.b === b) b.classList.add("iss-hold"); }, 200);
   });
   document.addEventListener("pointermove", e => { if(issHold && Math.abs(e.clientX - issHold.x0) + Math.abs(e.clientY - issHold.y0) > 8) issHold.stop(); }, {passive: true});
   document.addEventListener("pointerup", () => { if(issHold) issHold.stop(); });
@@ -3169,14 +3192,16 @@ body.focusing{overflow:hidden}
     if(withImage) return notesText(day, true);
     const L = [];
     if(teamLabel(day)) L.push("_" + teamLabel(day) + "_");
-    const ds = dronesOf(day).filter(d => d.drone.trim() || d.camera.trim());
+    const ds = dronesOf(day).filter(d => d.drone.trim() || d.camera.trim() || d.sd.trim());
     if(ds.length === 1){
       L.push("");
       if(ds[0].drone.trim()) L.push("*Drone:* " + ds[0].drone.trim());
       if(ds[0].camera.trim()) L.push("*Camera:* " + ds[0].camera.trim());
+      if(ds[0].sd.trim()) L.push("*SD card:* " + ds[0].sd.trim());
     } else if(ds.length > 1){
       L.push("", "*Drones:*");
-      for(const d of ds) L.push("- " + (d.drone.trim() || "Drone") + (d.camera.trim() ? " (" + d.camera.trim() + ")" : ""));
+      for(const d of ds){ const x = [d.camera.trim(), d.sd.trim() ? "SD " + d.sd.trim() : ""].filter(Boolean).join(", ");
+        L.push("- " + (d.drone.trim() || "Drone") + (x ? " (" + x + ")" : "")); }
     }
     if(day.kml){
       const bs = blockStats(day);
@@ -3345,11 +3370,11 @@ body.focusing{overflow:hidden}
       if(!navigator.share) throw new Error("no-share");
       if(fs.length && navigator.canShare && navigator.canShare({files: fs})) await navigator.share(text.trim() ? {files: fs, text} : {files: fs});
       else await navigator.share({text});
-      closeSummary();
+      closeSummary(); afterShare();
     }catch(e){
       if(e && e.name === "AbortError") return;
       // some apps refuse files + text together: copy the text, share the pictures alone
-      try{ if(fs.length && navigator.share){ await copyText(text); await navigator.share({files: fs}); toast("Paste the text as the caption."); closeSummary(); return; } }catch(e2){ if(e2 && e2.name === "AbortError") return; }
+      try{ if(fs.length && navigator.share){ await copyText(text); await navigator.share({files: fs}); toast("Paste the text as the caption."); closeSummary(); afterShare(); return; } }catch(e2){ if(e2 && e2.name === "AbortError") return; }
       // no sharing here (for example on a computer): copy the text and save the pictures
       const ok = text.trim() ? await copyText(text) : false;
       let saved = false;
@@ -3358,6 +3383,13 @@ body.focusing{overflow:hidden}
     }
   }
   function closeSummary(){ $("#summary").hidden = true; }
+  // shared the current day: offer the next one (still asks, so a share never moves you on by itself)
+  function afterShare(){
+    const day = getDay(view.dayId);
+    if(!day || day !== current()) return;
+    const nx = addDays(day.date, 1);
+    setTimeout(() => askDo("Shared. Move on to " + dayLabel(nx) + "?", "Start " + dayLabel(nx), "Not yet", nextDay), 300);
+  }
 
   async function copyText(text){
     let ok = false;
@@ -3507,9 +3539,9 @@ body.focusing{overflow:hidden}
     else if(act === "rm-drone"){
       if(!day) return;
       const i = Number(b.dataset.idx);
-      const x = i === 0 ? {drone: day.drone, camera: day.camera} : day.extra[i - 1]; if(!x || !day.extra.length) return;
-      if((x.drone.trim() || x.camera.trim()) && !confirmTap(b, "Remove?")) return;
-      if(i === 0){ const n = day.extra.shift(); day.drone = n.drone; day.camera = n.camera; }
+      const x = i === 0 ? {drone: day.drone, camera: day.camera, sd: day.sd || ""} : day.extra[i - 1]; if(!x || !day.extra.length) return;
+      if((x.drone.trim() || x.camera.trim() || (x.sd || "").trim()) && !confirmTap(b, "Remove?")) return;
+      if(i === 0){ const n = day.extra.shift(); day.drone = n.drone; day.camera = n.camera; day.sd = n.sd || ""; }
       else day.extra.splice(i - 1, 1);
       save(); render();
     }
@@ -3566,7 +3598,7 @@ body.focusing{overflow:hidden}
       day.kml = null; day.blocks = []; save(); render();
     }
     else if(act === "block"){ if(day) toggleBlock(day, b.dataset.id); }
-    else if(act === "tab"){ slideTo(["blocks", "summary"].includes(b.dataset.tab) ? b.dataset.tab : "list"); }
+    else if(act === "tab"){ const tb = ["blocks", "summary"].includes(b.dataset.tab) ? b.dataset.tab : "list"; if(tb === "list" && dayTab === "list") listJump(true); else slideTo(tb); }
     else if(act === "team-toggle"){
       const t = b.dataset.team;
       if(teamSel.has(t)) teamSel.delete(t); else teamSel.add(t);
@@ -3896,6 +3928,7 @@ body.focusing{overflow:hidden}
       if(ds.field === "date"){ if(!isISO(el.value)) return; day.date = el.value; }
       else if(ds.field === "drone") setDrone(day, Number(ds.idx || 0), "drone", el.value);
       else if(ds.field === "camera") setDrone(day, Number(ds.idx || 0), "camera", el.value);
+      else if(ds.field === "sd") setDrone(day, Number(ds.idx || 0), "sd", el.value);
       saveSoon(); refreshText(day);
       // A later day already exists: say these changes don't carry forward.
       const cas = $("#cascade"); if(cas) cas.hidden = false;
@@ -4792,7 +4825,7 @@ body.focusing{overflow:hidden}
       '<div class="blk-ha">' + fmtHa(bs.doneHa) + " of " + fmtHa(bs.totalHa) + ' ha</div></div>' : "";
     const prev = '<div class="sum-prevs" id="sum-prev"></div>';
     const fl = flightsHTML(day);
-    return '<div class="blk-tab sum-tab">' + head + prev + fl + (cut >= 0 ? h.slice(cut) : "");
+    return '<div class="blk-tab sum-tab">' + head + prev + (cut >= 0 ? h.slice(cut).replace("<!--mine-->", fl) : fl);
   }
   // Flown blocks with their battery use and notes. Public flight notes also go in the public notes (and Share); private ones in the private notes.
   function flightsHTML(day){
@@ -4857,9 +4890,11 @@ body.focusing{overflow:hidden}
   const FOCUS_IC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5a1 1 0 011-1h4M15 4h4a1 1 0 011 1v4M20 15v4a1 1 0 01-1 1h-4M9 20H5a1 1 0 01-1-1v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/></svg>';
   let focusOn = false, focusLock = null, focusRaf = 0, lockNote = false, noteLast = 0, noteTimer = 0;
   try{ lockNote = localStorage.getItem("flightDayLog.lockNote") === "1"; }catch(e){}
-  function focusNodes(){
-    const all = meshNodes(), anyStar = all.shown.some(starred);
-    return anyStar ? all.shown.filter(starred) : all.shown;
+  let focusAll = false;
+  // starred ones (or all, if none are starred); "Show N more" adds the rest
+  function focusNodes(all){
+    const ns = meshNodes().shown, anyStar = ns.some(starred);
+    return anyStar && !(all || focusAll) ? ns.filter(starred) : ns;
   }
   function myStatus(){
     const me = meshStore()[String(meshMine())], b = me ? batText(me) : null;
@@ -4881,6 +4916,8 @@ body.focusing{overflow:hidden}
         (my ? '<span class="fo-bat mn-bat ' + ms.b.c + '">' + batIcon(my) + '<span>' + ms.b.t + '</span></span>' : "") +
         '<button class="fo-x" type="button" id="b-focus-x" data-act="mesh-focus-close" aria-label="Close focus mode"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button></div>' +
       (rows ? '<ul class="fo-list">' + rows + '</ul>' : '<p class="fo-empty">No LoRas yet.</p>') +
+      (() => { const more = focusNodes(true).length - focusNodes().length;
+        return more > 0 || focusAll && meshNodes().shown.some(starred) ? '<button class="link fo-more" type="button" id="b-focus-more" data-act="mesh-focus-more">' + (focusAll ? "Just starred" : "Show " + more + " more") + '</button>' : ""; })() +
       ('Notification' in window && navigator.serviceWorker ? '<button class="fo-lock' + (lockNote ? " on" : "") + '" type="button" id="b-focus-lock" data-act="mesh-focus-lock" aria-pressed="' + lockNote + '">' +
         '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0110 0v3M5.5 11h13v9.5h-13z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>' +
         (lockNote ? "On the lock screen" : "Show on lock screen") + '</button>' : "");
@@ -4889,7 +4926,6 @@ body.focusing{overflow:hidden}
     let box = $("#focus");
     if(!box){ document.body.insertAdjacentHTML("beforeend", '<div class="focus" id="focus" role="dialog" aria-modal="true" aria-label="LoRa status"></div>'); box = $("#focus"); }
     focusOn = true; drawFocus(); box.hidden = false; document.body.classList.add("focusing");
-    try{ if(document.documentElement.requestFullscreen && !document.fullscreenElement) await document.documentElement.requestFullscreen({navigationUI: "hide"}); }catch(e){}
     focusWake();
   }
   async function focusWake(){
@@ -4902,17 +4938,15 @@ body.focusing{overflow:hidden}
     const box = $("#focus"); if(box) box.hidden = true;
     document.body.classList.remove("focusing");
     if(focusLock){ try{ focusLock.release(); }catch(e){} focusLock = null; }
-    try{ if(document.fullscreenElement) document.exitFullscreen(); }catch(e){}
   }
   document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible"){ focusWake(); if(focusOn) drawFocus(); } });
-  document.addEventListener("fullscreenchange", () => { if(!document.fullscreenElement && focusOn) drawFocus(); });
 
   // the lock-screen notification: one, replaced in place, silent
   function noteText(){
     const ms = myStatus();
     const title = "LoRa " + ms.st.toLowerCase() + (ms.since ? " " + ms.since : "") + (ms.me && ms.b.t ? " · " + ms.b.t : ms.me && ms.b.c === "pl" ? " · plugged in" : "");
     const my = ms.me;
-    const lines = focusNodes().map(n => {
+    const lines = focusNodes(false).map(n => {
       const b = batText(n), d = my ? distTo(my, n) : null;
       return [nodeName(n), b.t || (b.c === "pl" ? "plugged in" : ""), n.heard ? ago(n.heard) : "not heard", d].filter(Boolean).join(" · ");
     });
@@ -5045,6 +5079,7 @@ body.focusing{overflow:hidden}
     else if(act === "mesh-old"){ meshOld = !meshOld; meshChanged(true); }
     else if(act === "mesh-focus"){ openFocus(); }
     else if(act === "mesh-focus-close"){ closeFocus(); }
+    else if(act === "mesh-focus-more"){ focusAll = !focusAll; drawFocus(); }
     else if(act === "mesh-focus-lock"){ toggleLock(); }
     else if(act === "mesh-wake"){ wakeOn = !wakeOn; try{ localStorage.setItem("flightDayLog.wake", wakeOn ? "1" : "0"); }catch(e){} applyWake(); meshChanged(true); toast(wakeOn ? "Screen will stay on" : "Screen can turn off again"); }
     else return false;
@@ -5123,6 +5158,7 @@ body.focusing{overflow:hidden}
       dayTab = tab;
       try{ localStorage.setItem("flightDayLog.tab", dayTab); }catch(e){}
       render(); window.scrollTo(0, 0);
+      if(tab === "list") listJump(false);
     };
     if(reduceMotion){ moveMain(0); show(); return; }
     sliding = true;
@@ -5228,7 +5264,7 @@ body.focusing{overflow:hidden}
     if(e.key === "Escape" && menuOpen()){ closeMenu(); const mb = $("#b-menu"); if(mb) mb.focus(); return; }
     const el = e.target;
     if(e.key === "Escape" && !$("#issue").hidden){ $("#issue").hidden = true; return; }
-    if(e.key === "Enter" && el.dataset && (el.dataset.field === "drone" || el.dataset.field === "camera")) el.blur();
+    if(e.key === "Enter" && el.dataset && (el.dataset.field === "drone" || el.dataset.field === "camera" || el.dataset.field === "sd")) el.blur();
     if(e.key === "Enter" && el.dataset && el.dataset.edit === "item"){
       e.preventDefault();
       const ul = el.closest(".e-items");
