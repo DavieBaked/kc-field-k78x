@@ -1674,7 +1674,7 @@ body.focusing{overflow:hidden}
           (total > 1 ? '<button class="icon rm-x" type="button" id="b-rmdrone' + sfx + '" data-act="rm-drone" data-idx="' + i + '" aria-label="Remove Drone ' + (i + 1) + '">' + XICON + '</button>' : "") + '</div>' +
         '<div class="field"><label class="flabel" for="f-camera' + sfx + '">Camera' + (total > 1 ? " " + (i + 1) : "") + '</label>' +
           '<input class="in" id="f-camera' + sfx + '" value="' + esc(d.camera) + '" placeholder="e.g. D2" data-field="camera" data-idx="' + i + '" autocomplete="off" autocapitalize="characters" enterkeyhint="done">' +
-          (pc ? '<span class="hint">Last ' + esc(pc) + '</span>' : "") + '</div>' +
+          '</div>' +
         '<div class="field"><label class="flabel" for="f-sd' + sfx + '">SD card' + (total > 1 ? " " + (i + 1) : "") + '</label>' +
           '<input class="in" id="f-sd' + sfx + '" value="' + esc(d.sd) + '" placeholder="e.g. D2-1" data-field="sd" data-idx="' + i + '" autocomplete="off" autocapitalize="characters" enterkeyhint="done"></div>' +
         '<div class="camwarn" id="camwarn' + sfx + '" role="alert" hidden><span id="camwarn-text' + sfx + '"></span>' +
