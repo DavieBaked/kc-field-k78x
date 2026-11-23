@@ -5488,7 +5488,9 @@ body.focusing{overflow:hidden}
     const nd = makeDay(cur);
     nd.manual = true;                 // you moved on yourself: the app leaves this day alone, even if it's tomorrow
     state.days.push(nd); save();
+    dayTab = "list"; try{ localStorage.setItem("flightDayLog.tab", "list"); }catch(e){}   // a new day always starts on the checklist
     go({mode:"day", dayId:nd.id});
+    window.scrollTo(0, 0);
     toast("Planning " + dayLabel(nd.date), {label:"Undo", fn: () => {
       if(current() === nd){ state.days.pop(); save(); }
       go({mode:"day", dayId:current().id});
