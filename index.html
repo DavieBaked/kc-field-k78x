@@ -826,6 +826,49 @@ body.focusing{overflow:hidden}
 .fo-lock.on{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
 
 .fo-more{align-self:center;padding:10px 16px}
+
+/* messages */
+.ms-msg{position:relative}
+.ms-badge{position:absolute;top:2px;right:0;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--danger);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
+.mn-msg{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:48px;margin:6px 0 2px;border:1px solid var(--accent);border-radius:12px;background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent);font:inherit;font-weight:600}
+.mn-msg svg{width:20px;height:20px;flex:none}
+.mn-msg span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msgr{position:fixed;inset:0;z-index:61;background:var(--bg);color:var(--ink);display:flex;flex-direction:column;height:100dvh;
+  padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+.msgr[hidden]{display:none}
+.mg-top{display:flex;align-items:center;gap:6px;padding:8px 12px 4px 4px}
+.mg-x{margin:0}
+.mg-tt{display:grid;min-width:0}
+.mg-title{font-size:calc(22px * var(--fs));font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mg-sub{color:var(--muted);font-size:calc(13px * var(--fs))}
+.mg-chips,.mg-quick{display:flex;gap:8px;overflow-x:auto;padding:6px 16px;scrollbar-width:none;flex:none}
+.mg-chips::-webkit-scrollbar,.mg-quick::-webkit-scrollbar{display:none}
+.mg-chips{border-bottom:1px solid var(--line);padding-bottom:10px}
+.mg-chip{flex:none;display:flex;align-items:center;gap:6px;min-height:38px;padding:0 14px;border:1px solid var(--line-strong);border-radius:19px;background:none;color:var(--ink);font:inherit;font-weight:600}
+.mg-chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.mg-dot{min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--danger);color:#fff;font-size:12px;line-height:20px;text-align:center}
+.mg-list{flex:1;min-height:0;overflow-y:auto;list-style:none;margin:0;padding:12px 16px 8px;display:flex;flex-direction:column;gap:4px;overscroll-behavior:contain}
+.mg-day{align-self:center;margin:10px 0 6px;color:var(--muted);font-size:calc(13px * var(--fs));font-weight:600}
+.mg-empty{margin:auto;max-width:280px;text-align:center;color:var(--muted);line-height:1.5}
+.mg-m{display:grid;justify-items:start;max-width:82%;align-self:flex-start;margin-top:4px}
+.mg-m.me{align-self:flex-end;justify-items:end}
+.mg-who{font-size:calc(13px * var(--fs));font-weight:700;color:var(--accent);margin:2px 12px 2px}
+.mg-b{padding:10px 14px;border-radius:18px 18px 18px 6px;background:var(--surface);border:1px solid var(--line);font-size:calc(17px * var(--fs));line-height:1.35;white-space:pre-wrap;overflow-wrap:anywhere}
+.mg-m.me .mg-b{border-radius:18px 18px 6px 18px;background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.mg-m.fail .mg-b{opacity:.6}
+.mg-meta{font-size:calc(12px * var(--fs));color:var(--muted);margin:3px 8px 0;font-variant-numeric:tabular-nums}
+.mg-retry{margin:4px 4px 0;padding:6px 10px;border:0;border-radius:10px;background:color-mix(in srgb,var(--danger) 15%,transparent);color:var(--danger);font:inherit;font-size:calc(14px * var(--fs));font-weight:600}
+.mg-quick{padding-top:8px;border-top:1px solid var(--line)}
+.mg-q{flex:none;min-height:40px;padding:0 14px;border:1px solid var(--line-strong);border-radius:20px;background:var(--surface);color:var(--ink);font:inherit;font-weight:600;white-space:nowrap}
+.mg-q:disabled{opacity:.45}
+.mg-form{position:relative;display:flex;align-items:flex-end;gap:10px;padding:6px 12px 12px 16px}
+.mg-form textarea{flex:1;min-height:48px;max-height:120px;resize:none;padding:12px 16px;border:1px solid var(--line-strong);border-radius:24px;background:var(--surface);color:var(--ink);font:inherit;font-size:calc(17px * var(--fs));line-height:1.35}
+.mg-form textarea:disabled{opacity:.6}
+.mg-send{flex:none;display:grid;place-items:center;width:48px;height:48px;border:0;border-radius:50%;background:var(--accent);color:var(--accent-ink)}
+.mg-send:disabled{opacity:.4}
+.mg-send svg{width:22px;height:22px;transform:translateX(-1px)}
+.mg-count{position:absolute;right:76px;top:-14px;font-size:12px;color:var(--muted)}
+.mg-count.bad{color:var(--danger);font-weight:700}
 </style>
 </head>
 <body>
@@ -1063,14 +1106,17 @@ body.focusing{overflow:hidden}
     if(flipAt(date)) s = s === "2" ? "1" : "2";
     return s;
   }
+  // Cameras are named like D2 or A4 now (the SD card carries the -1/-2), so a camera just carries over.
   function cameraFor(c, date){
     c = String(c || "").trim();
+    return c;
     const m = c.match(CAM_RE);
     if(!m) return c;
     const want = wantSuffix(date);
     return m[1] + (want || (m[2] === "1" ? "2" : "1"));
   }
   function cameraWarning(day){
+    return null;
     const cam = day.camera.trim(), m = cam.match(CAM_RE), want = wantSuffix(day.date);
     if(!m || !want || m[2] === want) return null;
     return {html: 'Going by the <span class="nw">-1/-2</span> pattern, ' + esc(dayLabel(day.date)) + ' should be <span class="nw">' + esc(m[1] + want) + '</span>.', fix: m[1] + want, keep: cam};
@@ -1609,10 +1655,10 @@ body.focusing{overflow:hidden}
             (anyKnown ? "" : " hidden") + '>' + CHEV + '</button>' +
           (total > 1 ? '<button class="icon rm-x" type="button" id="b-rmdrone' + sfx + '" data-act="rm-drone" data-idx="' + i + '" aria-label="Remove Drone ' + (i + 1) + '">' + XICON + '</button>' : "") + '</div>' +
         '<div class="field"><label class="flabel" for="f-camera' + sfx + '">Camera' + (total > 1 ? " " + (i + 1) : "") + '</label>' +
-          '<input class="in" id="f-camera' + sfx + '" value="' + esc(d.camera) + '" placeholder="e.g. D1-1" data-field="camera" data-idx="' + i + '" autocomplete="off" autocapitalize="characters" enterkeyhint="done">' +
+          '<input class="in" id="f-camera' + sfx + '" value="' + esc(d.camera) + '" placeholder="e.g. D2" data-field="camera" data-idx="' + i + '" autocomplete="off" autocapitalize="characters" enterkeyhint="done">' +
           (pc ? '<span class="hint">Last ' + esc(pc) + '</span>' : "") + '</div>' +
         '<div class="field"><label class="flabel" for="f-sd' + sfx + '">SD card' + (total > 1 ? " " + (i + 1) : "") + '</label>' +
-          '<input class="in" id="f-sd' + sfx + '" value="' + esc(d.sd) + '" placeholder="e.g. SD3" data-field="sd" data-idx="' + i + '" autocomplete="off" autocapitalize="characters" enterkeyhint="done"></div>' +
+          '<input class="in" id="f-sd' + sfx + '" value="' + esc(d.sd) + '" placeholder="e.g. D2-1" data-field="sd" data-idx="' + i + '" autocomplete="off" autocapitalize="characters" enterkeyhint="done"></div>' +
         '<div class="camwarn" id="camwarn' + sfx + '" role="alert" hidden><span id="camwarn-text' + sfx + '"></span>' +
           '<span class="cw-acts"><button class="cw-btn solid" type="button" id="b-camfix' + sfx + '" data-act="cam-fix" data-idx="' + i + '"></button>' +
           '<button class="cw-btn" type="button" id="b-camkeep' + sfx + '" data-act="cam-keep" data-idx="' + i + '"></button></span></div>' +
@@ -3312,7 +3358,7 @@ body.focusing{overflow:hidden}
     // footer
     x.fillStyle = C.foot; x.fillRect(0, H - FOOT, W, FOOT);
     x.font = "500 26px " + F; x.fillStyle = C.footText;
-    const meta = dronesOf(day).map(d => [d.drone.trim(), d.camera.trim()].filter(Boolean).join(" · ")).filter(Boolean).join("   ") || day.kml.name;
+    const meta = dronesOf(day).map(d => [d.drone.trim(), d.camera.trim(), d.sd.trim() ? "SD " + d.sd.trim() : ""].filter(Boolean).join(" · ")).filter(Boolean).join("   ") || day.kml.name;
     const keys = [["", "Flown"], ["", "To fly"]];
     const keyW = keys.reduce((s, k) => s + 22 + 10 + x.measureText(k[1]).width + 28, -28);
     // drones and cameras shrink to fit beside the key
@@ -3676,7 +3722,7 @@ body.focusing{overflow:hidden}
       const folded = autoCollapse(day, before);
       save(); refreshCounts(day);
       // let the tick show for a moment before the finished group folds away
-      if(folded){ clearTimeout(foldT); foldT = setTimeout(() => { if(view.mode === "day" && dayTab === "list" && view.dayId === day.id){ render(); doJump(); } }, 350); }
+      if(folded){ clearTimeout(foldT); foldT = setTimeout(() => { if(view.mode === "day" && dayTab === "list" && view.dayId === day.id){ render(); doJump(); } }, 1200); }
     }
     else if(act === "reset-group"){
       if(!day) return;
@@ -4213,6 +4259,10 @@ body.focusing{overflow:hidden}
       learn(mesh.nodes, pk.from, Object.assign(base, dmb ? {metrics: readMetrics(dmb)} : {}), t);
       if(dmb) answered(pk.from, "bat");
     }
+    else if(pk.port === PORT.TEXT){
+      learn(mesh.nodes, pk.from, base, t);
+      if(pk.from !== radio.num) gotText(pk, t);
+    }
     else if(pk.port === PORT.ADMIN){
       // every admin reply carries the node's session passkey; admin commands to it must send it back
       const k = PB.bytes(PB.read(pk.payload), 101);
@@ -4222,6 +4272,8 @@ body.focusing{overflow:hidden}
       const r = PB.read(pk.payload), err = PB.u32(r, 3) || 0, a = radio.asked[pk.requestId];
       const ad = adminReq[pk.requestId];
       if(ad){ delete adminReq[pk.requestId]; ad(err); }
+      const ma = msgAck[pk.requestId];
+      if(ma){ delete msgAck[pk.requestId]; ma(err, pk.from); }
       if(a && err && err !== 0){
         delete radio.asked[pk.requestId];
         askFailed(a.num, a.kind, err === 3 || err === 5 || err === 8 ? "no answer" : "can’t reach");
@@ -4430,6 +4482,7 @@ body.focusing{overflow:hidden}
     };
     nodes[2].hops = 1; nodes[3].hops = 2; nodes[4].hops = 2; nodes[5].hops = 1;
     meshDemo = {nodes, myNum: 1, path, seg: 0, f: 0, timer: 0};
+    meshDemo.msgT = setTimeout(() => { if(meshDemo) gotText({from: 3, to: 0xffffffff, ch: 0, id: packetId(), payload: new TextEncoder().encode("Morning all, Car 3 at the gate")}, Date.now()); }, 6000);
     meshDemo.timer = setInterval(() => {
       const d = meshDemo; if(!d) return;
       const a = d.path[d.seg], b = d.path[(d.seg + 1) % d.path.length];
@@ -4447,6 +4500,7 @@ body.focusing{overflow:hidden}
   }
   function stopDemo(quiet){
     if(!meshDemo) return;
+    clearTimeout(meshDemo.msgT);
     clearInterval(meshDemo.timer); meshDemo = null; meshSel = null;
     if(!quiet) meshChanged(true);
   }
@@ -4571,7 +4625,9 @@ body.focusing{overflow:hidden}
     const cup = live && navigator.wakeLock ? '<button class="ms-cup' + (wakeOn ? " on" : "") + '" type="button" aria-pressed="' + wakeOn + '" id="b-mesh-wake" data-act="mesh-wake" aria-label="Keep the screen on">' + CUP + '</button>' : "";
     const hasNodes = Object.keys(meshStore()).length > 0;
     const foc = hasNodes ? '<button class="ms-cup ms-focus" type="button" id="b-mesh-focus" data-act="mesh-focus" aria-label="Focus mode: just the LoRas, big">' + FOCUS_IC + '</button>' : "";
-    head += (foc && cup ? '<span class="ms-icons">' + foc + cup + '</span>' : foc || cup);
+    const un = msgUnread(), msgB = live || msgAny() ? '<button class="ms-cup ms-msg" type="button" id="b-mesh-msgs" data-act="mesh-msgs" aria-label="Messages' + (un ? ", " + un + " new" : "") + '">' + MSG_IC + (un ? '<span class="ms-badge">' + (un > 9 ? "9+" : un) + '</span>' : "") + '</button>' : "";
+    const ics = [msgB, foc, cup].filter(Boolean);
+    head += ics.length > 1 ? '<span class="ms-icons">' + ics.join("") + '</span>' : ics.join("");
     return '<div class="card ms' + (radio.state === "lost" && !meshDemo ? " lost" : "") + '"><div class="ms-head">' + head + '</div>' + body + meBox +
       '<div class="ms-acts">' + acts + '</div></div>';
   }
@@ -4772,6 +4828,7 @@ body.focusing{overflow:hidden}
         : "") +
       kvRow(n, isMe, "pos", hasPos ? '<button class="mn-coords mono" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '" aria-label="Copy coordinates">' + coords + '</button>' : '<span class="mn-none">none yet</span>', hasPos ? n.posT : null) +
       (isMe ? "" : kvRow(n, isMe, "bat", n.bat == null ? '<span class="mn-none">not shared yet</span>' : [b.t, n.bat > 100 ? PLUG : "", n.volt ? '<span class="mn-volt">' + n.volt.toFixed(2) + " V</span>" : ""].filter(Boolean).join('<span class="mn-volt"> · </span>'), n.bat == null ? null : n.batT)) +
+      (renaming || isMe ? "" : '<button class="mn-msg" type="button" id="b-msg-' + n.num + '" data-act="mesh-msg" data-num="' + n.num + '">' + MSG_IC + '<span>Message ' + esc(nodeName(n)) + '</span></button>') +
       (renaming ? "" : '<p class="mn-ident">' + esc([n.long, hex(n.num).slice(-4), hwName(n)].filter(Boolean).join(" · ")) + '</p>') +
       '</div>';
   }
@@ -4858,6 +4915,7 @@ body.focusing{overflow:hidden}
   let meshRaf = 0, meshLast = 0;
   function meshChanged(now){
     if(!meshDemo) meshSave();
+    if(msgOn && !msgRaf) msgRaf = setTimeout(() => { msgRaf = 0; const l = $("#mg-list"); if(l && l.scrollHeight) drawMsgr(false); }, 400);
     updateMeshTab();
     if(focusOn && !focusRaf) focusRaf = setTimeout(() => { focusRaf = 0; drawFocus(); }, 300);
     if(lockNote) pushNote(false);
@@ -4884,10 +4942,188 @@ body.focusing{overflow:hidden}
   }
   setInterval(() => { if(view.mode === "day" && dayTab === "blocks") meshChanged(); if(focusOn) drawFocus(); }, 20000);
 
+  /* ---------- messages: one chat for everyone on the channel, and one per LoRa ----------
+     Kept on this phone (last 200 per chat). Sent over the radio as plain Meshtastic text, so the
+     official app on other phones sees them too. A tick means the radio heard it go out (everyone)
+     or the other LoRa confirmed it (one-to-one). */
+  const MSG_KEY = "flightDayLog.msgs", MSG_MAX = 200, MSG_BYTES = 200, BCAST = 0xffffffff;
+  const MSG_IC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 015.5 4h13A1.5 1.5 0 0120 5.5v9a1.5 1.5 0 01-1.5 1.5H10l-4.5 4v-4h0A1.5 1.5 0 014 14.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+  const SEND_IC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 17-3-7z" fill="currentColor"/></svg>';
+  const QUICK = ["👍 Copy", "On my way", "At launch", "Flying now", "Landed", "Swapping battery", "Done for today", "Need help"];
+  let msgs = {th: {}, read: {}};
+  try{ const m = JSON.parse(localStorage.getItem(MSG_KEY) || "null"); if(m && m.th) msgs = Object.assign(msgs, m); }catch(e){}
+  const msgSave = () => { try{ localStorage.setItem(MSG_KEY, JSON.stringify(msgs)); }catch(e){} };
+  const msgAck = {};
+  let msgTh = "all", msgOn = false;
+  const msgAny = () => Object.values(msgs.th).some(l => l.length);
+  const unreadIn = th => (msgs.th[th] || []).filter(m => !m.mine && m.t > (msgs.read[th] || 0)).length;
+  const msgUnread = () => Object.keys(msgs.th).reduce((a, th) => a + unreadIn(th), 0);
+  function thName(th){
+    if(th === "all") return "Everyone";
+    if(th.startsWith("ch")) return "Channel " + th.slice(2);
+    const n = meshStore()[th] || mesh.nodes[th];
+    return n ? nodeName(n) : hex(+th);
+  }
+  function addMsg(th, m){
+    const l = msgs.th[th] || (msgs.th[th] = []);
+    if(m.id && l.some(x => x.id === m.id && x.from === m.from)) return false;   // the radio can hand the same one over twice
+    l.push(m); if(l.length > MSG_MAX) l.splice(0, l.length - MSG_MAX);
+    msgSave(); return true;
+  }
+  function gotText(pk, t){
+    const to = pk.to >>> 0, me = meshMine();
+    const th = to === BCAST ? (pk.ch ? "ch" + pk.ch : "all") : to === me ? String(pk.from) : null;
+    if(!th) return;
+    let text = ""; try{ text = new TextDecoder().decode(pk.payload); }catch(e){ return; }
+    if(!text.trim()) return;
+    const m = {id: pk.id, from: pk.from, text, t: Math.min(t || Date.now(), Date.now())};
+    if(!addMsg(th, m)) return;
+    const n = meshStore()[String(pk.from)], who = n ? nodeName(n) : hex(pk.from);
+    if(msgOn && msgTh === th && document.visibilityState === "visible"){ msgs.read[th] = Date.now(); msgSave(); drawMsgr(true); }
+    else {
+      if(navigator.vibrate) try{ navigator.vibrate([60, 60, 60]); }catch(e){}
+      toast(who + (th === "all" ? "" : " (to you)") + ": " + (text.length > 60 ? text.slice(0, 58) + "…" : text), {label: "Open", fn: () => openMsgr(th), ms: 6000});
+      msgNote(th, who, text);
+      if(msgOn) drawMsgr(false);
+    }
+    meshChanged(true);
+  }
+  // a system notification when the app isn't on screen (if notifications are allowed)
+  async function msgNote(th, who, text){
+    if(document.visibilityState === "visible" || !("Notification" in window) || Notification.permission !== "granted" || !navigator.serviceWorker) return;
+    try{ const reg = await navigator.serviceWorker.ready; await reg.showNotification(who + (th === "all" ? "" : " · to you"), {body: text, tag: "msg-" + th, renotify: true, icon: "icon-192.png", data: {url: "./"}}); }catch(e){}
+  }
+  async function sendText(th, text){
+    text = String(text || "").trim();
+    if(!text) return;
+    if(!meshDemo && radio.state !== "live"){ toast("Connect your LoRa to send."); return; }
+    if(new TextEncoder().encode(text).length > MSG_BYTES){ toast("Too long for one LoRa message. Shorten it a bit."); return; }
+    const m = {id: packetId(), from: meshMine(), mine: true, text, t: Date.now(), st: "sending"};
+    addMsg(th, m); msgs.read[th] = Date.now();
+    drawMsgr(true);
+    transmit(th, m);
+  }
+  async function transmit(th, m){
+    const set = st => { m.st = st; msgSave(); if(msgOn) drawMsgr(false); };
+    if(meshDemo){
+      setTimeout(() => set("ok"), 1200);
+      if(/\?|help/i.test(m.text) || th !== "all") setTimeout(() => { if(meshDemo) gotText({from: th === "all" ? 3 : +th, to: th === "all" ? BCAST : meshMine(), ch: 0, id: packetId(), payload: new TextEncoder().encode("Copy that 👍")}, Date.now()); }, 3500);
+      return;
+    }
+    const dm = th !== "all" && !th.startsWith("ch");
+    const to = dm ? +th : BCAST, ch = dm ? ((meshStore()[th] || {}).ch || 0) : th === "all" ? 0 : +th.slice(2);
+    msgAck[m.id] = (err, from) => {
+      // a DM's real confirmation comes from the other LoRa; one from my own radio only means it went out
+      if(err === 0) set(!dm || from === to ? "ok" : "sent");
+      else set(err === 5 && !dm ? "sent" : "fail");
+    };
+    try{
+      await send(toRadio.packet({from: radio.num, to, ch, port: PORT.TEXT, payload: new TextEncoder().encode(m.text), id: m.id, wantAck: true}));
+      if(m.st === "sending") set("sent");
+      setTimeout(() => { if(msgAck[m.id]){ delete msgAck[m.id]; if(dm && m.st === "sent") set("fail"); } }, 90e3);
+    }catch(e){ delete msgAck[m.id]; set("fail"); }
+  }
+  function retryText(id){
+    const l = msgs.th[msgTh] || [], m = l.find(x => x.mine && String(x.id) === String(id)); if(!m) return;
+    if(!meshDemo && radio.state !== "live"){ toast("Connect your LoRa to send."); return; }
+    l.splice(l.indexOf(m), 1);
+    m.id = packetId(); m.t = Date.now(); m.st = "sending"; l.push(m); msgSave();
+    drawMsgr(true); transmit(msgTh, m);
+  }
+  const hhmm = t => { const d = new Date(t); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+  function dayHead(t){
+    const d = new Date(t), now = new Date(), y = new Date(now); y.setDate(now.getDate() - 1);
+    const same = (a, b) => a.toDateString() === b.toDateString();
+    return same(d, now) ? "Today" : same(d, y) ? "Yesterday" : d.toLocaleDateString(undefined, {weekday: "short", day: "numeric", month: "short"});
+  }
+  function threadsList(){
+    // Everyone first, then chats you've had (newest first), then starred LoRas you haven't messaged yet
+    const ths = Object.keys(msgs.th).filter(th => th !== "all" && msgs.th[th].length);
+    ths.sort((a, b) => (msgs.th[b].slice(-1)[0].t) - (msgs.th[a].slice(-1)[0].t));
+    for(const n of meshNodes().shown) if(starred(n) && n.num !== meshMine() && !ths.includes(String(n.num))) ths.push(String(n.num));
+    if(msgTh !== "all" && !ths.includes(msgTh)) ths.unshift(msgTh);
+    return ["all"].concat(ths);
+  }
+  function drawMsgr(toEnd){
+    const box = $("#msgr"); if(!box || !msgOn) return;
+    const live = meshDemo || radio.state === "live", th = msgTh;
+    $("#mg-title").textContent = thName(th);
+    $("#mg-sub").textContent = th === "all" ? "Everyone on your channel" : "Just you and " + thName(th);
+    // only touch what changed, so a tap in progress isn't lost to a redraw
+    const put = (el, h) => { if(el._h !== h){ el._h = h; el.innerHTML = h; return true; } return false; };
+    put($("#mg-chips"), threadsList().map(t => {
+      const u = t === th ? 0 : unreadIn(t);
+      return '<button class="mg-chip' + (t === th ? " on" : "") + '" type="button" data-act="mesh-msg-th" data-th="' + esc(t) + '" aria-pressed="' + (t === th) + '">' + esc(thName(t)) + (u ? '<span class="mg-dot">' + u + '</span>' : "") + '</button>';
+    }).join(""));
+    const l = msgs.th[th] || [], list = $("#mg-list");
+    const near = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+    let html = "", lastDay = "", lastFrom = null;
+    for(const m of l){
+      const dh = dayHead(m.t);
+      if(dh !== lastDay){ html += '<li class="mg-day">' + esc(dh) + '</li>'; lastDay = dh; lastFrom = null; }
+      const n = m.mine ? null : meshStore()[String(m.from)], who = m.mine ? "" : n ? nodeName(n) : hex(m.from);
+      const st = !m.mine ? "" : m.st === "sending" ? "Sending…" : m.st === "sent" ? "Sent" : m.st === "ok" ? (th === "all" ? "Sent ✓" : "Delivered ✓") : "";
+      html += '<li class="mg-m' + (m.mine ? " me" : "") + (m.st === "fail" ? " fail" : "") + '">' +
+        (!m.mine && th === "all" && lastFrom !== m.from ? '<span class="mg-who">' + esc(who) + '</span>' : "") +
+        '<span class="mg-b">' + esc(m.text) + '</span>' +
+        '<span class="mg-meta">' + hhmm(m.t) + (st ? " · " + st : "") + '</span>' +
+        (m.st === "fail" ? '<button class="mg-retry" type="button" data-act="mesh-msg-retry" data-id="' + esc(String(m.id)) + '">Not delivered · Tap to send again</button>' : "") + '</li>';
+      lastFrom = m.mine ? "me" : m.from;
+    }
+    put(list, html || '<li class="mg-empty">' + (th === "all" ? "No messages yet. Anything you send here goes to every LoRa on your channel." : "No messages with " + esc(thName(th)) + " yet.") + '</li>');
+    if(toEnd || near) list.scrollTop = list.scrollHeight;
+    put($("#mg-quick"), QUICK.map(q => '<button class="mg-q" type="button" data-act="mesh-msg-quick" data-text="' + esc(q) + '"' + (live ? "" : " disabled") + '>' + esc(q) + '</button>').join(""));
+    const inp = $("#mg-in"), sendB = $("#mg-send");
+    inp.disabled = !live; sendB.disabled = !live;
+    inp.placeholder = live ? "Message " + thName(th) : "Connect your LoRa to send";
+    msgCount();
+    if(document.visibilityState === "visible"){ msgs.read[th] = Date.now(); msgSave(); }
+  }
+  function msgCount(){
+    const inp = $("#mg-in"), c = $("#mg-count"); if(!inp || !c) return;
+    const n = new TextEncoder().encode(inp.value).length;
+    c.hidden = n < MSG_BYTES - 40; c.textContent = (MSG_BYTES - n) + " left"; c.classList.toggle("bad", n > MSG_BYTES);
+  }
+  function openMsgr(th){
+    let box = $("#msgr");
+    if(!box){
+      document.body.insertAdjacentHTML("beforeend",
+        '<div class="msgr" id="msgr" role="dialog" aria-modal="true" aria-labelledby="mg-title" hidden>' +
+          '<div class="mg-top"><button class="fo-x mg-x" type="button" data-act="mesh-msg-close" aria-label="Close messages"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
+            '<span class="mg-tt"><span class="mg-title" id="mg-title"></span><span class="mg-sub" id="mg-sub"></span></span></div>' +
+          '<div class="mg-chips" id="mg-chips"></div>' +
+          '<ul class="mg-list" id="mg-list" aria-live="polite"></ul>' +
+          '<div class="mg-quick" id="mg-quick"></div>' +
+          '<form class="mg-form" id="mg-form"><label class="sr" for="mg-in">Message</label>' +
+            '<textarea id="mg-in" rows="1" enterkeyhint="send" autocomplete="off" autocapitalize="sentences"></textarea>' +
+            '<span class="mg-count" id="mg-count" hidden></span>' +
+            '<button class="mg-send" type="submit" id="mg-send" aria-label="Send">' + SEND_IC + '</button></form>' +
+        '</div>');
+      box = $("#msgr");
+      const inp = $("#mg-in"), grow = () => { inp.style.height = "auto"; inp.style.height = Math.min(inp.scrollHeight, 120) + "px"; };
+      inp.addEventListener("input", () => { grow(); msgCount(); });
+      inp.addEventListener("keydown", e => { if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); $("#mg-form").requestSubmit(); } });
+      $("#mg-form").addEventListener("submit", e => { e.preventDefault(); const v = inp.value; if(!v.trim()) return; if(new TextEncoder().encode(v.trim()).length > MSG_BYTES){ toast("Too long for one LoRa message. Shorten it a bit."); return; } inp.value = ""; grow(); sendText(msgTh, v); inp.focus(); });
+      document.addEventListener("keydown", e => { if(e.key === "Escape" && msgOn) closeMsgr(); });
+    }
+    if(th) msgTh = th;
+    else if(!msgOn){ const u = threadsList().find(t => unreadIn(t)); msgTh = u || msgTh || "all"; }
+    msgOn = true; box.hidden = false; document.body.classList.add("focusing");
+    drawMsgr(true);
+    meshChanged(true);
+  }
+  function closeMsgr(){
+    msgOn = false; const box = $("#msgr"); if(box) box.hidden = true;
+    if(!focusOn) document.body.classList.remove("focusing");
+    meshChanged(true);
+  }
+  document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible" && msgOn) drawMsgr(false); });
+
   /* ---------- focus mode: the LoRas, big, nothing else ----------
      Keeps the screen on while it's open. "Lock screen" also puts the same status in a silent
      notification that Android shows on the lock screen; it updates while the app is still running. */
   const FOCUS_IC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5a1 1 0 011-1h4M15 4h4a1 1 0 011 1v4M20 15v4a1 1 0 01-1 1h-4M9 20H5a1 1 0 01-1-1v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/></svg>';
+  let msgRaf = 0;
   let focusOn = false, focusLock = null, focusRaf = 0, lockNote = false, noteLast = 0, noteTimer = 0;
   try{ lockNote = localStorage.getItem("flightDayLog.lockNote") === "1"; }catch(e){}
   let focusAll = false;
@@ -5078,6 +5314,12 @@ body.focusing{overflow:hidden}
     else if(act === "mesh-rename-cancel"){ meshRename = null; meshChanged(true); }
     else if(act === "mesh-old"){ meshOld = !meshOld; meshChanged(true); }
     else if(act === "mesh-focus"){ openFocus(); }
+    else if(act === "mesh-msgs"){ openMsgr(null); }
+    else if(act === "mesh-msg"){ openMsgr(String(num)); }
+    else if(act === "mesh-msg-close"){ closeMsgr(); }
+    else if(act === "mesh-msg-th"){ openMsgr(b.dataset.th); }
+    else if(act === "mesh-msg-quick"){ sendText(msgTh, b.dataset.text); }
+    else if(act === "mesh-msg-retry"){ retryText(b.dataset.id); }
     else if(act === "mesh-focus-close"){ closeFocus(); }
     else if(act === "mesh-focus-more"){ focusAll = !focusAll; drawFocus(); }
     else if(act === "mesh-focus-lock"){ toggleLock(); }
