@@ -1273,6 +1273,24 @@ body.focusing{overflow:hidden}
   // A sub-section folds away the moment its last item is ticked, and opens again if one is unticked.
   // Whole sections never fold on their own.
   // Returns true when something folded or opened. `before` is day.checked as it was.
+  // Ticking a whole group or section: show the ticks first, fold (and move on) a moment later,
+  // the same as ticking the last item by hand. Unfolding happens straight away.
+  function tickThenFold(day, before){
+    const c0 = day.collapsed.slice(), g0 = day.gcol.slice();
+    autoCollapse(day, before);
+    const c1 = day.collapsed.slice(), g1 = day.gcol.slice();
+    save();
+    const folds = c1.some(id => !c0.includes(id)) || g1.some(id => !g0.includes(id));
+    clearTimeout(foldT);
+    if(!folds){ render(); doJump(); return; }
+    const j = jumpTo; jumpTo = null;
+    day.collapsed = c0.filter(id => c1.includes(id)); day.gcol = g0.filter(id => g1.includes(id));
+    render();
+    foldT = setTimeout(() => {
+      day.collapsed = c1; day.gcol = g1; save(); jumpTo = j;
+      if(view.mode === "day" && dayTab === "list" && view.dayId === day.id){ render(); doJump(); } else jumpTo = null;
+    }, 1200);
+  }
   function autoCollapse(day, before){
     const b = new Set(before), a = new Set(day.checked);
     let changed = false;
@@ -3746,8 +3764,7 @@ body.focusing{overflow:hidden}
       const before = day.checked.slice();
       day.checked = day.checked.filter(id => !ids.includes(id));
       if(!all) day.checked.push(...ids);
-      autoCollapse(day, before);
-      save(); render(); doJump();
+      tickThenFold(day, before);
     }
     else if(act === "gtoggle"){
       if(!day) return;
@@ -3765,8 +3782,7 @@ body.focusing{overflow:hidden}
       const before = day.checked.slice();
       day.checked = day.checked.filter(id => !ids.includes(id));
       if(!all) day.checked.push(...ids);
-      autoCollapse(day, before);
-      save(); render(); doJump();
+      tickThenFold(day, before);
       toast((sec.name || "Section") + (all ? " cleared" : " all ticked"), {label:"Undo", fn: () => { day.checked = before; save(); render(); }});
     }
     else if(act === "collapse"){
