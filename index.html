@@ -204,7 +204,9 @@ h1,.h1{margin:0;font-family:var(--font-display);font-weight:700;font-size:calc(2
 .tb.on{color:var(--accent)}
 .tb.on::before{content:"";position:absolute;top:-1px;left:22%;right:22%;height:2px;border-radius:2px;background:var(--accent)}
 body.has-tabs .toast{bottom:calc(56px + env(safe-area-inset-bottom,0px))}
-body.has-tabs .blk-tab{padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))}
+/* --tabh is the tab bar's real height (bigger text, a phone's nav bar), so nothing ends up under it */
+body.has-tabs .blk-tab{padding-bottom:calc(var(--tabh, 56px) + 34px)}
+body.has-tabs .next{padding-bottom:calc(var(--tabh, 56px) + 24px)}
 body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))}
 .tp-sub{margin:-8px 0 2px;font-size:calc(14px * var(--fs));color:var(--muted)}
 .team-btn .tp-name{flex:1}
@@ -1922,6 +1924,12 @@ body.focusing{overflow:hidden}
   document.addEventListener("pointerup", dragEnd);
   document.addEventListener("pointercancel", dragEnd);
 
+  // keep --tabh in step with the tab bar's height
+  (() => {
+    const set = () => { const t = $("#tabbar"); if(t && t.offsetHeight) document.documentElement.style.setProperty("--tabh", t.offsetHeight + "px"); };
+    if(window.ResizeObserver){ const ro = new ResizeObserver(set); const watch = () => { const t = $("#tabbar"); if(t){ ro.observe(t, {box: "border-box"}); set(); } else setTimeout(watch, 500); }; watch(); }
+    addEventListener("resize", set);
+  })();
   function renderFoot(){
     const f = $("#foot");
     if(view.mode === "edit" || (view.mode === "day" && dayTab !== "list" && !pending)){ f.hidden = true; return; }
