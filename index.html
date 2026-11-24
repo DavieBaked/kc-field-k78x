@@ -830,8 +830,8 @@ body.focusing{overflow:hidden}
 /* messages */
 .ms-msg{position:relative}
 .ms-badge{position:absolute;top:2px;right:0;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--danger);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
-.mn-msg{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:48px;margin:6px 0 2px;border:1px solid var(--accent);border-radius:12px;background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent);font:inherit;font-weight:600}
-.mn-msg svg{width:20px;height:20px;flex:none}
+.mn-msg{display:inline-flex;align-items:center;gap:6px;max-width:100%;min-height:36px;margin:6px 0 2px;padding:0 12px;border:1px solid var(--line-strong);border-radius:18px;background:none;color:var(--accent);font:inherit;font-size:calc(14px * var(--fs));font-weight:600}
+.mn-msg svg{width:16px;height:16px;flex:none}
 .mn-msg span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .msgr{position:fixed;inset:0;z-index:61;background:var(--bg);color:var(--ink);display:flex;flex-direction:column;height:100dvh;
   padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
@@ -3376,7 +3376,7 @@ body.focusing{overflow:hidden}
     // footer
     x.fillStyle = C.foot; x.fillRect(0, H - FOOT, W, FOOT);
     x.font = "500 26px " + F; x.fillStyle = C.footText;
-    const meta = dronesOf(day).map(d => [d.drone.trim(), d.camera.trim(), d.sd.trim() ? "SD " + d.sd.trim() : ""].filter(Boolean).join(" · ")).filter(Boolean).join("   ") || day.kml.name;
+    const meta = dronesOf(day).map(d => [d.drone.trim(), d.camera.trim() ? "Camera " + d.camera.trim() : "", d.sd.trim() ? "SD " + d.sd.trim() : ""].filter(Boolean).join(" · ")).filter(Boolean).join("   ") || day.kml.name;
     const keys = [["", "Flown"], ["", "To fly"]];
     const keyW = keys.reduce((s, k) => s + 22 + 10 + x.measureText(k[1]).width + 28, -28);
     // drones and cameras shrink to fit beside the key
@@ -4092,7 +4092,7 @@ body.focusing{overflow:hidden}
   }
   function readUser(b){
     const m = PB.read(b);
-    return {id: PB.str(m, 1) || "", long: PB.str(m, 2) || "", short: PB.str(m, 3) || "", hw: PB.u32(m, 5) || 0, pk: PB.bytes(m, 8) || null};
+    return {id: PB.str(m, 1) || "", long: PB.str(m, 2) || "", short: PB.str(m, 3) || "", hw: PB.u32(m, 5) || 0, role: PB.u32(m, 7) || 0, pk: PB.bytes(m, 8) || null};
   }
   function readMetrics(b){
     const m = PB.read(b);
@@ -4153,7 +4153,7 @@ body.focusing{overflow:hidden}
     if(num == null) return;
     const now = fromDb ? null : Date.now();
     const n = nodeOf(store, num);
-    if(info.user){ if(info.user.long) n.long = info.user.long; if(info.user.short) n.short = info.user.short; if(info.user.id) n.id = info.user.id; if(info.user.hw) n.hw = info.user.hw; if(info.user.pk && info.user.pk.length === 32) n.pk = btoa(String.fromCharCode.apply(null, Array.from(info.user.pk))); }
+    if(info.user){ if(info.user.long) n.long = info.user.long; if(info.user.short) n.short = info.user.short; if(info.user.id) n.id = info.user.id; if(info.user.hw) n.hw = info.user.hw; n.role = info.user.role || 0; if(info.user.pk && info.user.pk.length === 32) n.pk = btoa(String.fromCharCode.apply(null, Array.from(info.user.pk))); }
     if(info.metrics && info.metrics.bat != null && (!n.batT || !t || t >= n.batT)){ n.bat = info.metrics.bat; n.volt = info.metrics.volt; n.batT = t || n.batT || now; }
     if(info.pos){
       const pt = info.pos.t || t || now;
@@ -4844,7 +4844,7 @@ body.focusing{overflow:hidden}
         : "") +
       kvRow(n, isMe, "pos", hasPos ? '<button class="mn-coords mono" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '" aria-label="Copy coordinates">' + coords + '</button>' : '<span class="mn-none">none yet</span>', hasPos ? n.posT : null) +
       (isMe ? "" : kvRow(n, isMe, "bat", n.bat == null ? '<span class="mn-none">not shared yet</span>' : [b.t, n.bat > 100 ? PLUG : "", n.volt ? '<span class="mn-volt">' + n.volt.toFixed(2) + " V</span>" : ""].filter(Boolean).join('<span class="mn-volt"> · </span>'), n.bat == null ? null : n.batT)) +
-      (renaming || isMe ? "" : '<button class="mn-msg" type="button" id="b-msg-' + n.num + '" data-act="mesh-msg" data-num="' + n.num + '">' + MSG_IC + '<span>Message ' + esc(nodeName(n)) + '</span></button>') +
+      (renaming || isMe || !canChat(n) ? "" : '<button class="mn-msg" type="button" id="b-msg-' + n.num + '" data-act="mesh-msg" data-num="' + n.num + '">' + MSG_IC + '<span>Message</span></button>') +
       (renaming ? "" : '<p class="mn-ident">' + esc([n.long, hex(n.num).slice(-4), hwName(n)].filter(Boolean).join(" · ")) + '</p>') +
       '</div>';
   }
@@ -4971,6 +4971,9 @@ body.focusing{overflow:hidden}
   const msgSave = () => { try{ localStorage.setItem(MSG_KEY, JSON.stringify(msgs)); }catch(e){} };
   const msgAck = {};
   let msgTh = "all", msgOn = false;
+  // Relay LoRas (set up as Router / Repeater) have no one to read a message, so they get no chat.
+  const RELAY = [2, 3, 4, 11];
+  const canChat = n => !RELAY.includes(n.role || 0);
   const msgAny = () => Object.values(msgs.th).some(l => l.length);
   const unreadIn = th => (msgs.th[th] || []).filter(m => !m.mine && m.t > (msgs.read[th] || 0)).length;
   const msgUnread = () => Object.keys(msgs.th).reduce((a, th) => a + unreadIn(th), 0);
@@ -5056,7 +5059,7 @@ body.focusing{overflow:hidden}
     // Everyone first, then chats you've had (newest first), then starred LoRas you haven't messaged yet
     const ths = Object.keys(msgs.th).filter(th => th !== "all" && msgs.th[th].length);
     ths.sort((a, b) => (msgs.th[b].slice(-1)[0].t) - (msgs.th[a].slice(-1)[0].t));
-    for(const n of meshNodes().shown) if(starred(n) && n.num !== meshMine() && !ths.includes(String(n.num))) ths.push(String(n.num));
+    for(const n of meshNodes().shown) if(starred(n) && canChat(n) && n.num !== meshMine() && !ths.includes(String(n.num))) ths.push(String(n.num));
     if(msgTh !== "all" && !ths.includes(msgTh)) ths.unshift(msgTh);
     return ["all"].concat(ths);
   }
@@ -5375,6 +5378,36 @@ body.focusing{overflow:hidden}
         else navigator.serviceWorker.ready.then(done);
       }).catch(() => {});
     });
+  }
+
+  /* ---------- "Get latest version": skip every cache (phone, GitHub's CDN) and reload ---------- */
+  if((location.protocol === "https:" || location.hostname === "localhost") && !inClaude){
+    const menu = document.getElementById("menu");
+    if(menu){
+      menu.insertAdjacentHTML("beforeend", '<hr><button type="button" role="menuitem" id="m-update">Get latest version</button>');
+      document.getElementById("m-update").addEventListener("click", async e => {
+        e.stopPropagation(); closeMenu();
+        if(!navigator.onLine){ toast("No signal. Try again when you have some."); return; }
+        toast("Getting the latest version…", {ms: 20000});
+        try{
+          const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 20000);
+          const res = await fetch("./index.html?fresh=" + Date.now(), {cache: "no-store", signal: ctl.signal});
+          clearTimeout(to);
+          if(!res.ok) throw new Error(res.status);
+          const html = await res.text();
+          if("caches" in window){
+            const c = await caches.open("kruger-checklist-v3"), h = {headers: {"content-type": "text/html; charset=utf-8"}};
+            await c.put("./index.html", new Response(html, h)); await c.put("./", new Response(html, h));
+          }
+          try{ const reg = await navigator.serviceWorker.getRegistration(); if(reg) await reg.update(); }catch(err){}
+          try{ sessionStorage.setItem("flightDayLog.updated", "1"); }catch(err){}
+          location.replace(location.pathname + "?fresh=" + Date.now());
+        }catch(err){ toast("Couldn't reach the internet. Nothing changed.", {ms: 5000}); }
+      });
+    }
+    let upd = false; try{ upd = sessionStorage.getItem("flightDayLog.updated") === "1"; sessionStorage.removeItem("flightDayLog.updated"); }catch(e){}
+    if(/[?&]fresh=/.test(location.search)) history.replaceState(null, "", location.pathname);
+    if(upd) setTimeout(() => toast("You're on the latest version."), 600);
   }
 
   /* ---------- a KML shared into the app from WhatsApp (or Files): load it into the day on screen ---------- */
