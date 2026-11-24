@@ -4372,8 +4372,10 @@ body.focusing{overflow:hidden}
   function scheduleRetry(){
     clearTimeout(radio.retryT);
     const waits = [2000, 6000, 15000];
-    if(radio.retries >= waits.length || !radio.device) return;
-    radio.retryT = setTimeout(() => { radio.retries++; reconnect(true); }, waits[radio.retries]);
+    // the Android app keeps running with the screen off, so it keeps trying every 30 s
+    const w = radio.retries < waits.length ? waits[radio.retries] : window.KC_NATIVE ? 30000 : 0;
+    if(!w || !radio.device) return;
+    radio.retryT = setTimeout(() => { radio.retries++; reconnect(true); }, w);
   }
   async function reconnect(auto){
     if(radio.state === "connecting" || radio.state === "syncing" || radio.state === "live") return;
@@ -4440,6 +4442,7 @@ body.focusing{overflow:hidden}
     radio.state = s;
     if(s === "live"){ mesh.lastLive = Date.now(); meshSave(); if(was === "syncing") refit(); }
     meshChanged(true);
+    nativeStatus(true);
   }
 
   // Asks one node for a fresh position ("pos") or battery reading ("bat"). Each is one small packet plus the reply.
@@ -4938,6 +4941,7 @@ body.focusing{overflow:hidden}
     updateMeshTab();
     if(focusOn && !focusRaf) focusRaf = setTimeout(() => { focusRaf = 0; drawFocus(); }, 300);
     if(lockNote) pushNote(false);
+    nativeStatus(false);
     if(view.mode !== "day" || dayTab !== "blocks") return;
     if(meshRaf) return;
     const wait = now ? 0 : Math.max(0, 400 - (Date.now() - meshLast));
@@ -5012,6 +5016,7 @@ body.focusing{overflow:hidden}
   }
   // a system notification when the app isn't on screen (if notifications are allowed)
   async function msgNote(th, who, text){
+    if(window.KC_NATIVE){ if(!window.KC_FG && window.KcNative) KcNative.notify({title: who + (th === "all" ? "" : " · to you"), body: text, thread: th}).catch(() => {}); return; }
     if(document.visibilityState === "visible" || !("Notification" in window) || Notification.permission !== "granted" || !navigator.serviceWorker) return;
     try{ const reg = await navigator.serviceWorker.ready; await reg.showNotification(who + (th === "all" ? "" : " · to you"), {body: text, tag: "msg-" + th, renotify: true, icon: "icon-192.png", data: {url: "./"}}); }catch(e){}
   }
@@ -5176,7 +5181,7 @@ body.focusing{overflow:hidden}
       (rows ? '<ul class="fo-list">' + rows + '</ul>' : '<p class="fo-empty">No LoRas yet.</p>') +
       (() => { const more = focusNodes(true).length - focusNodes().length;
         return more > 0 || focusAll && meshNodes().shown.some(starred) ? '<button class="link fo-more" type="button" id="b-focus-more" data-act="mesh-focus-more">' + (focusAll ? "Just starred" : "Show " + more + " more") + '</button>' : ""; })() +
-      ('Notification' in window && navigator.serviceWorker ? '<button class="fo-lock' + (lockNote ? " on" : "") + '" type="button" id="b-focus-lock" data-act="mesh-focus-lock" aria-pressed="' + lockNote + '">' +
+      (!window.KC_NATIVE && 'Notification' in window && navigator.serviceWorker ? '<button class="fo-lock' + (lockNote ? " on" : "") + '" type="button" id="b-focus-lock" data-act="mesh-focus-lock" aria-pressed="' + lockNote + '">' +
         '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0110 0v3M5.5 11h13v9.5h-13z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>' +
         (lockNote ? "On the lock screen" : "Show on lock screen") + '</button>' : "");
   }
@@ -5210,6 +5215,21 @@ body.focusing{overflow:hidden}
     });
     return {title, body: lines.join("\n") || "No LoRas yet"};
   }
+  // Android app: while a radio is connected (or being got back) a foreground service keeps the app running
+  // with the screen off; its notification carries the same status, so it's on the lock screen.
+  var natT = 0, natLast = 0, natOn = false;   // var: meshChanged can run before this line does
+  function nativeStatus(now){
+    if(!window.KC_NATIVE || !window.KcNative) return;
+    const want = ["live", "syncing", "connecting"].includes(radio.state) || (radio.state === "lost" && !!radio.device);
+    if(!want){ clearTimeout(natT); natT = 0; if(natOn){ natOn = false; KcNative.stopStatus().catch(() => {}); } return; }
+    if(natT){ if(!now) return; clearTimeout(natT); }
+    natT = setTimeout(() => {
+      natT = 0; natLast = Date.now();
+      const t = noteText(); natOn = true;
+      KcNative.status({title: t.title, body: t.body}).catch(() => {});
+    }, now || !natOn ? 0 : Math.max(0, 5000 - (Date.now() - natLast)));
+  }
+  if(window.KC_NATIVE) setInterval(() => nativeStatus(false), 60000);
   async function pushNote(force){
     if(!lockNote || !navigator.serviceWorker) return;
     const wait = force ? 0 : Math.max(0, 15000 - (Date.now() - noteLast));
