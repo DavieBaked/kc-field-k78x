@@ -869,6 +869,9 @@ body.focusing{overflow:hidden}
 .mg-send svg{width:22px;height:22px;transform:translateX(-1px)}
 .mg-count{position:absolute;right:76px;top:-14px;font-size:12px;color:var(--muted)}
 .mg-count.bad{color:var(--danger);font-weight:700}
+
+.mn-msgic{color:var(--accent)}
+.mn-msgic svg{width:16px;height:16px;transform:none}
 </style>
 </head>
 <body>
@@ -4677,6 +4680,7 @@ body.focusing{overflow:hidden}
           (asked ? ' data-wait="1"' : "") + ' aria-label="' + age + '. Tap to ask for a fresh ' + what + '">' + age + ICON.refresh + '</button>') + '</div>';
   }
   const BUNNY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11.5C7.6 9 7 5.5 8.2 3.6c1.4.6 2.2 3.6 2.3 7M15 11.5c1.4-2.5 2-6 .8-7.9-1.4.6-2.2 3.6-2.3 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="12" cy="15.5" rx="5.6" ry="5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="10" cy="14.8" r=".9" fill="currentColor"/><circle cx="14" cy="14.8" r=".9" fill="currentColor"/></svg>';
+  const msgBtn = n => '<button class="mn-ic mn-pen mn-msgic" type="button" id="b-msg-' + n.num + '" data-act="mesh-msg" data-num="' + n.num + '" aria-label="Message ' + esc(nodeName(n)) + '" title="Message">' + MSG_IC + '</button>';
   const penBtn = n => '<button class="mn-ic mn-pen" type="button" id="b-nick-' + n.num + '" data-act="mesh-rename" data-num="' + n.num + '" aria-label="Rename" title="Rename">' + ICON.pen + '</button>';
   const starBtn = n => '<button class="mn-ic mn-starbtn' + (starred(n) ? " on" : "") + '" type="button" id="b-star-' + n.num + '" data-act="mesh-star" data-num="' + n.num + '" aria-pressed="' + starred(n) + '" aria-label="Star" title="Star">' + (starred(n) ? ICON.starOn : ICON.star) + '</button>';
   // The opened part of a node: position (tap to copy) and battery, each with its refresh button.
@@ -4844,7 +4848,6 @@ body.focusing{overflow:hidden}
         : "") +
       kvRow(n, isMe, "pos", hasPos ? '<button class="mn-coords mono" type="button" id="b-copy-' + n.num + '" data-act="mesh-copy" data-num="' + n.num + '" aria-label="Copy coordinates">' + coords + '</button>' : '<span class="mn-none">none yet</span>', hasPos ? n.posT : null) +
       (isMe ? "" : kvRow(n, isMe, "bat", n.bat == null ? '<span class="mn-none">not shared yet</span>' : [b.t, n.bat > 100 ? PLUG : "", n.volt ? '<span class="mn-volt">' + n.volt.toFixed(2) + " V</span>" : ""].filter(Boolean).join('<span class="mn-volt"> · </span>'), n.bat == null ? null : n.batT)) +
-      (renaming || isMe || !canChat(n) ? "" : '<button class="mn-msg" type="button" id="b-msg-' + n.num + '" data-act="mesh-msg" data-num="' + n.num + '">' + MSG_IC + '<span>Message</span></button>') +
       (renaming ? "" : '<p class="mn-ident">' + esc([n.long, hex(n.num).slice(-4), hwName(n)].filter(Boolean).join(" · ")) + '</p>') +
       '</div>';
   }
@@ -4864,7 +4867,7 @@ body.focusing{overflow:hidden}
       const sub = [d, n.heard ? "heard " + ago(n.heard) : "last heard unknown"].filter(Boolean).join(" · ");
       return '<li class="mn' + (sel ? " sel" : "") + '"><div class="mn-row" role="button" tabindex="0" id="mn-' + n.num + '" data-act="mesh-sel" data-num="' + n.num + '" aria-expanded="' + sel + '">' +
         '<span class="mn-badge ' + ageClass(n.heard) + '">' + esc(nodeShort(n)) + '</span>' +
-        '<span class="mn-txt"><span class="mn-name">' + (starred(n) && !sel ? '<span class="mn-star" aria-label="Starred">★</span>' : "") + '<span class="mn-nm">' + esc(nodeName(n)) + '</span>' + (sel ? penBtn(n) : "") + '</span>' +
+        '<span class="mn-txt"><span class="mn-name">' + (starred(n) && !sel ? '<span class="mn-star" aria-label="Starred">★</span>' : "") + '<span class="mn-nm">' + esc(nodeName(n)) + '</span>' + (sel ? penBtn(n) + (canChat(n) ? msgBtn(n) : "") : "") + '</span>' +
         '<span class="mn-sub ' + ageClass(n.heard) + '">' + esc(sub) + '</span></span>' +
         '<span class="mn-end">' + (sel ? starBtn(n) : '<span class="mn-bat ' + b.c + '">' + batIcon(n) + '<span>' + b.t + '</span></span>') + '</span></div>' +
         (sel ? detailHTML(n, isMe) : "") + '</li>';
