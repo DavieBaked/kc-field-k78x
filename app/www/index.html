@@ -3271,15 +3271,12 @@ body.focusing{overflow:hidden}
     const L = [];
     if(teamLabel(day)) L.push("_" + teamLabel(day) + "_");
     const ds = dronesOf(day).filter(d => d.drone.trim() || d.camera.trim() || d.sd.trim());
-    if(ds.length === 1){
+    // drone • camera • SD card, one line per drone
+    const line = d => [d.drone.trim(), d.camera.trim(), d.sd.trim()].filter(Boolean).join(" • ");
+    if(ds.length === 1) L.push("", line(ds[0]));
+    else if(ds.length > 1){
       L.push("");
-      if(ds[0].drone.trim()) L.push("*Drone:* " + ds[0].drone.trim());
-      if(ds[0].camera.trim()) L.push("*Camera:* " + ds[0].camera.trim());
-      if(ds[0].sd.trim()) L.push("*SD card:* " + ds[0].sd.trim());
-    } else if(ds.length > 1){
-      L.push("", "*Drones:*");
-      for(const d of ds){ const x = [d.camera.trim(), d.sd.trim() ? "SD " + d.sd.trim() : ""].filter(Boolean).join(", ");
-        L.push("- " + (d.drone.trim() || "Drone") + (x ? " (" + x + ")" : "")); }
+      for(const d of ds) L.push(line(d));
     }
     if(day.kml){
       const bs = blockStats(day);
