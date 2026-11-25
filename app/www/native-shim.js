@@ -11,11 +11,12 @@
   if(!C || !C.isNativePlatform || !C.isNativePlatform()) return;
   window.KC_NATIVE = true;
   window.KC_FG = true;
-  const Kc = window.KcNative = C.Plugins.KcNative;
+  // registerPlugin, not Capacitor.Plugins: in Capacitor 8 Plugins only has the ones registered from JS
+  const Kc = window.KcNative = C.registerPlugin("KcNative");
   const Ble = window.capacitorCommunityBluetoothLe && window.capacitorCommunityBluetoothLe.BleClient;
 
   // the app in front or not (Android doesn't always tell the page)
-  Kc.addListener("appState", s => { window.KC_FG = !!s.active; });
+  try{ Kc.addListener("appState", s => { window.KC_FG = !!s.active; }); }catch(e){ console.warn(e); }
 
   const b64 = blob => new Promise((res, rej) => {
     const r = new FileReader();
