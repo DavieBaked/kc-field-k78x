@@ -4309,9 +4309,10 @@ body.focusing{overflow:hidden}
   function askFailed(num, kind, why){
     const n = meshStore()[String(num)];
     if(!n || !n.asked || !n.asked[kind]) return;
+    const quiet = n.askQuiet && n.askQuiet[kind];
     n.asked[kind] = null;
     n.fail = Object.assign(n.fail || {}, {[kind]: {t: Date.now(), why}});
-    toast(nodeName(n) + (why === "no answer" ? " didn’t answer" : " couldn’t be reached"));
+    if(!quiet) toast(nodeName(n) + (why === "no answer" ? " didn’t answer" : " couldn’t be reached"));
     meshChanged(true);
     setTimeout(() => meshChanged(true), FAIL_SHOW + 100);
   }
@@ -4445,14 +4446,14 @@ body.focusing{overflow:hidden}
   function setRadioState(s){
     const was = radio.state;
     radio.state = s;
-    if(s === "live"){ mesh.lastLive = Date.now(); meshSave(); if(was === "syncing") refit(); }
+    if(s === "live"){ mesh.lastLive = Date.now(); meshSave(); if(was === "syncing"){ refit(); setTimeout(autoAsk, 60e3); } }
     meshChanged(true);
     nativeStatus(true);
   }
 
   // Asks one node for a fresh position ("pos") or battery reading ("bat"). Each is one small packet plus the reply.
   // Nodes throttle their answers, so asking again within a few minutes may get nothing.
-  async function askNode(num, kind){
+  async function askNode(num, kind, quiet){
     const label = kind === "pos" ? "position" : "battery";
     if(meshDemo){
       const n = meshDemo.nodes[num]; if(!n) return;
@@ -4468,16 +4469,43 @@ body.focusing{overflow:hidden}
     const at = Date.now();
     radio.asked[id] = {num: n.num, kind, at};
     n.asked = Object.assign(n.asked || {}, {[kind]: at});
+    n.askQuiet = Object.assign(n.askQuiet || {}, {[kind]: !!quiet});
     if(n.fail) n.fail[kind] = null;
     setTimeout(() => { if(n.asked && n.asked[kind] === at){ delete radio.asked[id]; askFailed(n.num, kind, "no answer"); } }, ASK_WAIT);
     try{
       await send(kind === "pos"
         ? toRadio.packet({from: radio.num, to: n.num, ch: n.ch || 0, port: PORT.POSITION, payload: new Uint8Array(0), wantResponse: true, wantAck: true, id})
         : toRadio.packet({from: radio.num, to: n.num, ch: n.ch || 0, port: PORT.TELEMETRY, payload: PB.write([[2, "m", []]]), wantResponse: true, wantAck: true, id}));
-      toast("Asked " + nodeName(n) + " for its " + label);
-    }catch(e){ n.asked[kind] = null; toast("Couldn’t send. Is the radio still connected?"); }
+      if(!quiet) toast("Asked " + nodeName(n) + " for its " + label);
+    }catch(e){ n.asked[kind] = null; if(!quiet) toast("Couldn’t send. Is the radio still connected?"); }
     meshChanged();
   }
+  /* Every 5 minutes, quietly ask the starred LoRas (or, with none starred, the ones you can message)
+     for battery and position, unless they've sent them in the last 4 minutes anyway.
+     Spaced 20 s apart so the requests don't pile up on air. */
+  const AUTO_EVERY = 5 * 60e3, AUTO_FRESH = 4 * 60e3, AUTO_GAP = 20e3;
+  let autoQ = [], autoT = 0;
+  function autoAsk(){
+    if(radio.state !== "live" || meshDemo) return;
+    const ns = meshNodes().shown.filter(n => n.num !== meshMine());
+    const pick = ns.some(starred) ? ns.filter(starred) : ns.filter(canChat).slice(0, 6);
+    const now = Date.now();
+    for(const n of pick) for(const kind of ["bat", "pos"]){
+      const got = kind === "pos" ? n.posT : n.batT;
+      if(got && now - got < AUTO_FRESH) continue;
+      if(askedRecently(n, kind) || autoQ.some(q => q.num === n.num && q.kind === kind)) continue;
+      autoQ.push({num: n.num, kind});
+    }
+    autoNext();
+  }
+  function autoNext(){
+    if(autoT || !autoQ.length) return;
+    if(radio.state !== "live"){ autoQ = []; return; }
+    const q = autoQ.shift();
+    askNode(q.num, q.kind, true);
+    autoT = setTimeout(() => { autoT = 0; autoNext(); }, AUTO_GAP);
+  }
+  setInterval(autoAsk, AUTO_EVERY);
   const askedRecently = (n, kind) => n.asked && n.asked[kind] && Date.now() - n.asked[kind] < ASK_WAIT;
 
   /* ---- demo: made-up nodes so the layout can be tried anywhere ---- */
