@@ -4540,6 +4540,7 @@ body.focusing{overflow:hidden}
     };
     nodes[2].hops = 1; nodes[3].hops = 2; nodes[4].hops = 2; nodes[5].hops = 1;
     meshDemo = {nodes, myNum: 1, path, seg: 0, f: 0, timer: 0};
+    msgsDemo(true);
     meshDemo.msgT = setTimeout(() => { if(meshDemo) gotText({from: 3, to: 0xffffffff, ch: 0, id: packetId(), payload: new TextEncoder().encode("Morning all, Car 3 at the gate")}, Date.now()); }, 6000);
     meshDemo.timer = setInterval(() => {
       const d = meshDemo; if(!d) return;
@@ -4559,6 +4560,7 @@ body.focusing{overflow:hidden}
   function stopDemo(quiet){
     if(!meshDemo) return;
     clearTimeout(meshDemo.msgT);
+    msgsDemo(false);
     clearInterval(meshDemo.timer); meshDemo = null; meshSel = null;
     if(!quiet) meshChanged(true);
   }
@@ -5011,7 +5013,24 @@ body.focusing{overflow:hidden}
   const QUICK = ["👍 Copy", "On my way", "At launch", "Flying now", "Landed", "Swapping battery", "Done for today", "Need help"];
   let msgs = {th: {}, read: {}};
   try{ const m = JSON.parse(localStorage.getItem(MSG_KEY) || "null"); if(m && m.th) msgs = Object.assign(msgs, m); }catch(e){}
-  const msgSave = () => { try{ localStorage.setItem(MSG_KEY, JSON.stringify(msgs)); }catch(e){} };
+  // Demo chats live only in memory and vanish when the demo stops. (Older builds saved them: clear those out,
+  // they're the ones with the demo's tiny node numbers.)
+  {
+    const demoNum = x => x != null && +x < 1000;
+    let gone = 0;
+    for(const th of Object.keys(msgs.th)){
+      if(th !== "all" && !th.startsWith("ch") && demoNum(th)){ delete msgs.th[th]; gone++; continue; }
+      const l = msgs.th[th], keep = l.filter(m => !demoNum(m.from));
+      gone += l.length - keep.length; msgs.th[th] = keep;
+    }
+    if(gone) try{ localStorage.setItem(MSG_KEY, JSON.stringify(msgs)); }catch(e){}
+  }
+  let msgsReal = null;
+  function msgsDemo(on){
+    if(on && !msgsReal){ msgsReal = msgs; msgs = {th: {}, read: {}}; }
+    else if(!on && msgsReal){ msgs = msgsReal; msgsReal = null; if(msgOn) drawMsgr(true); }
+  }
+  const msgSave = () => { if(msgsReal) return; try{ localStorage.setItem(MSG_KEY, JSON.stringify(msgs)); }catch(e){} };
   const msgAck = {};
   let msgTh = "all", msgOn = false;
   // Relay LoRas (set up as Router / Repeater) have no one to read a message, so they get no chat.
@@ -5044,7 +5063,6 @@ body.focusing{overflow:hidden}
     if(msgOn && msgTh === th && document.visibilityState === "visible"){ msgs.read[th] = Date.now(); msgSave(); drawMsgr(true); }
     else {
       if(navigator.vibrate) try{ navigator.vibrate([60, 60, 60]); }catch(e){}
-      toast(who + (th === "all" ? "" : " (to you)") + ": " + (text.length > 60 ? text.slice(0, 58) + "…" : text), {label: "Open", fn: () => openMsgr(th), ms: 6000});
       msgNote(th, who, text);
       if(msgOn) drawMsgr(false);
     }
