@@ -3390,7 +3390,7 @@ body.focusing{overflow:hidden}
     // footer
     x.fillStyle = C.foot; x.fillRect(0, H - FOOT, W, FOOT);
     x.font = "500 26px " + F; x.fillStyle = C.footText;
-    const meta = dronesOf(day).map(d => [d.drone.trim(), d.camera.trim() ? "Camera " + d.camera.trim() : "", d.sd.trim() ? "SD " + d.sd.trim() : ""].filter(Boolean).join(" · ")).filter(Boolean).join("   ") || day.kml.name;
+    const meta = dronesOf(day).map(d => [d.drone.trim(), d.camera.trim(), d.sd.trim()].filter(Boolean).join(" • ")).filter(Boolean).join("   ") || day.kml.name;
     const keys = [["", "Flown"], ["", "To fly"]];
     const keyW = keys.reduce((s, k) => s + 22 + 10 + x.measureText(k[1]).width + 28, -28);
     // drones and cameras shrink to fit beside the key
