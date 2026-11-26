@@ -3103,7 +3103,7 @@ body.focusing{overflow:hidden}
     const wrap = $("#map-wrap"); if(!wrap) return;
     let pill = $("#map-pick");
     const s = pickedOf(day), bl = day.kml ? day.kml.groups.flatMap(g => g.blocks).filter(b => s.has(b.id)) : [];
-    if(!bl.length){ if(pill) pill.remove(); return; }
+    if(!bl.length){ if(pill) pill.remove(); drawPlus(day); return; }
     if(!pill){ wrap.insertAdjacentHTML("beforeend", '<div class="map-pick" id="map-pick"></div>'); pill = $("#map-pick"); }
     const ha = bl.reduce((a, b) => a + (b.ha || 0), 0);
     const one = bl.length === 1 ? bl[0] : null;
@@ -4301,7 +4301,7 @@ body.focusing{overflow:hidden}
     if(!mesh.nick || typeof mesh.nick !== "object") mesh.nick = {};
     if(!mesh.star || typeof mesh.star !== "object") mesh.star = {};
     // requests that were still out when the app closed: their timers are gone, so forget them
-    for(const n of Object.values(mesh.nodes)){ if(n){ n.asked = null; n.askQuiet = null; } }
+    for(const n of Object.values(mesh.nodes)){ if(n){ n.asked = null; n.askQuiet = null; n.autoAt = null; } }
   }catch(e){}
   let meshSaveT = 0;
   function meshSaveNow(){ clearTimeout(meshSaveT); try{ localStorage.setItem(MESH_KEY, JSON.stringify(mesh)); }catch(e){} }
@@ -4642,27 +4642,40 @@ body.focusing{overflow:hidden}
         ? toRadio.packet({from: radio.num, to: n.num, ch: n.ch || 0, port: PORT.POSITION, payload: new Uint8Array(0), wantResponse: true, wantAck: true, id})
         : toRadio.packet({from: radio.num, to: n.num, ch: n.ch || 0, port: PORT.TELEMETRY, payload: PB.write([[2, "m", []]]), wantResponse: true, wantAck: true, id}));
       if(!quiet) toast("Asked " + nodeName(n) + " for its " + label);
-    }catch(e){ if(!quiet){ n.asked[kind] = null; toast("Couldn’t send. Is the radio still connected?"); } }
-    if(!quiet) meshChanged();
+    }catch(e){ if(!quiet){ n.asked[kind] = null; toast("Couldn’t send. Is the radio still connected?"); } else if(n.autoAt) n.autoAt[kind] = null; }
+    meshChanged();
   }
-  /* Every 5 minutes, quietly ask the starred LoRas (or, with none starred, the ones you can message)
-     for battery and position, unless they've sent them in the last 4 minutes anyway.
-     Spaced 20 s apart so the requests don't pile up on air. */
-  const AUTO_EVERY = 5 * 60e3, AUTO_FRESH = 4 * 60e3, AUTO_GAP = 20e3;
-  let autoQ = [], autoT = 0;
-  function autoAsk(){
-    if(radio.state !== "live" || meshDemo) return;
+  /* Automatic requests, to the starred LoRas (or, with none starred, up to 6 you can message):
+       position every 5 minutes, unless it came in during the last 4;
+       battery every 15 minutes: a try a minute for 3 minutes, until it answers.
+     The wheel spins while one is out; no toasts and no "didn't answer". Spaced 8 s apart on air. */
+  const POS_EVERY = 5 * 60e3, POS_FRESH = 4 * 60e3, BAT_EVERY = 15 * 60e3, BAT_TRIES = 3, BAT_STEP = 60e3, AUTO_GAP = 8e3;
+  let autoQ = [], autoT = 0, batRound = null;
+  const autoTargets = () => {
     const ns = meshNodes().shown.filter(n => n.num !== meshMine());
-    const pick = ns.some(starred) ? ns.filter(starred) : ns.filter(canChat).slice(0, 6);
+    return ns.some(starred) ? ns.filter(starred) : ns.filter(canChat).slice(0, 6);
+  };
+  const autoBusy = (n, kind) => askedRecently(n, kind) || autoPending(n, kind) || autoQ.some(q => q.num === n.num && q.kind === kind);
+  function autoPos(){
+    if(radio.state !== "live" || meshDemo) return;
     const now = Date.now();
-    for(const n of pick) for(const kind of ["bat", "pos"]){
-      const got = kind === "pos" ? n.posT : n.batT;
-      if(got && now - got < AUTO_FRESH) continue;
-      if(askedRecently(n, kind) || autoQ.some(q => q.num === n.num && q.kind === kind)) continue;
-      if(n.autoAt && n.autoAt[kind] && now - n.autoAt[kind] < AUTO_FRESH) continue;   // asked a moment ago, no answer yet
-      autoQ.push({num: n.num, kind});
-    }
+    for(const n of autoTargets()) if(!(n.posT && now - n.posT < POS_FRESH) && !autoBusy(n, "pos")) autoQ.push({num: n.num, kind: "pos"});
     autoNext();
+  }
+  // a battery round: up to 3 tries, a minute apart, for the ones that haven't sent it since the round began
+  function autoBat(force){
+    if(radio.state !== "live" || meshDemo) return;
+    const now = Date.now();
+    if(!batRound || (force && now - batRound.at > BAT_EVERY)) batRound = {at: now, n: 0};
+    if(batRound.n >= BAT_TRIES) return;
+    batRound.n++;
+    for(const n of autoTargets()) if(!(n.batT && n.batT >= batRound.at - 60e3) && !autoBusy(n, "bat")) autoQ.push({num: n.num, kind: "bat"});
+    autoNext();
+    if(batRound.n < BAT_TRIES) setTimeout(() => autoBat(false), BAT_STEP);
+  }
+  function autoAsk(){
+    autoPos();
+    if(!batRound || Date.now() - batRound.at >= BAT_EVERY - 5000){ batRound = null; autoBat(true); }
   }
   function autoNext(){
     if(autoT || !autoQ.length) return;
@@ -4671,7 +4684,14 @@ body.focusing{overflow:hidden}
     askNode(q.num, q.kind, true);
     autoT = setTimeout(() => { autoT = 0; autoNext(); }, AUTO_GAP);
   }
-  setInterval(autoAsk, AUTO_EVERY);
+  // waiting on an automatic request: up to 50 s, or until that value arrives
+  function autoPending(n, kind){
+    const at = n.autoAt && n.autoAt[kind]; if(!at || Date.now() - at > 50e3) return false;
+    const got = kind === "pos" ? n.posT : n.batT;
+    return !(got && got >= at);
+  }
+  setInterval(autoPos, POS_EVERY);
+  setInterval(() => { batRound = null; autoBat(true); }, BAT_EVERY);
   document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") setTimeout(autoAsk, 3000); });
   const askedRecently = (n, kind) => n.asked && n.asked[kind] && Date.now() - n.asked[kind] < ASK_WAIT;
 
@@ -4870,7 +4890,7 @@ body.focusing{overflow:hidden}
   const linkType = n => n.mqtt ? "Internet (MQTT)" : n.hops === 0 ? "Direct" : n.hops > 0 ? "Relayed" : "";
   // One detail line: symbol, value, and on the far right how old it is. Tapping the age asks the node again.
   function kvRow(n, isMe, kind, value, t){
-    const asked = askedRecently(n, kind);
+    const asked = askedRecently(n, kind) || autoPending(n, kind);
     const fresh = !asked && t && Date.now() - t < 15000;
     const can = meshDemo || radio.state === "live";
     const what = kind === "pos" ? "position" : "battery";
