@@ -306,6 +306,10 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 .fl-undo{justify-self:center;margin-top:-6px}
 .fl-lrow{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:-12px}
 .fl-lrow .fl-l{margin:0}
+.crash{position:fixed;left:12px;right:12px;top:calc(var(--hh, 60px) + 8px);z-index:70;display:grid;gap:6px;padding:14px 16px;border-radius:14px;background:var(--surface);border:1px solid var(--danger);box-shadow:0 8px 24px rgb(0 0 0 / .35);color:var(--ink)}
+.crash[hidden]{display:none}
+.crash span{color:var(--muted);font-size:calc(14px * var(--fs));overflow-wrap:anywhere}
+.crash-acts{display:flex;gap:18px}
 .share-box{display:grid;gap:8px;margin-top:4px}
 .share-what{margin:0;text-align:center;color:var(--muted);font-size:calc(14px * var(--fs))}
 .next-big{margin-top:8px}
@@ -1594,15 +1598,39 @@ body.focusing{overflow:hidden}
   }
 
 
+  /* ---------- if something breaks: say what, so it can be fixed ---------- */
+  let crashShown = 0;
+  function showCrash(e){
+    const msg = (e && (e.message || e.reason && e.reason.message)) || String(e);
+    const where = ((e && e.stack) || "").split("\n").slice(0, 3).join(" | ");
+    console.error(e);
+    if(Date.now() - crashShown < 4000) return;
+    crashShown = Date.now();
+    let box = document.getElementById("crash");
+    if(!box){ document.body.insertAdjacentHTML("beforeend", '<div class="crash" id="crash" role="alert"></div>'); box = document.getElementById("crash"); }
+    box.innerHTML = '<b>Something broke on this screen.</b><span>' + esc(msg) + '</span>' +
+      '<div class="crash-acts"><button class="link" type="button" id="b-crash-copy">Copy for Claude</button><button class="link" type="button" id="b-crash-x">Dismiss</button></div>';
+    box.hidden = false;
+    document.getElementById("b-crash-copy").onclick = () => copyText("Kruger error: " + msg + "\n" + where + "\nview: " + JSON.stringify(view) + " tab: " + dayTab);
+    document.getElementById("b-crash-x").onclick = () => { box.hidden = true; };
+  }
+  window.addEventListener("error", e => { if(e && e.error) showCrash(e.error); });
+  window.addEventListener("unhandledrejection", e => { const r = e && e.reason; if(r && r.name !== "AbortError" && r.name !== "NotFoundError" && /TypeError|ReferenceError|RangeError/.test(String(r.name || r))) showCrash(r); });
+
   /* ---------- rendering ---------- */
   function render(){
     const fid = document.activeElement && document.activeElement.id;
-    if(view.mode === "history") renderHistory();
-    else if(view.mode === "edit") renderEdit();
-    else renderDay();
-    renderFoot();
-    $("#tabbar").hidden = view.mode !== "day";
-    document.body.classList.toggle("has-tabs", view.mode === "day");
+    // whatever goes wrong drawing the page, the tabs still show and the error is on screen to send to me
+    try{
+      if(view.mode === "history") renderHistory();
+      else if(view.mode === "edit") renderEdit();
+      else renderDay();
+      renderFoot();
+    }catch(e){ showCrash(e); }
+    finally{
+      $("#tabbar").hidden = view.mode !== "day";
+      document.body.classList.toggle("has-tabs", view.mode === "day");
+    }
     measureHeader();
     if(fid){
       const el = document.getElementById(fid);
@@ -2651,7 +2679,7 @@ body.focusing{overflow:hidden}
   let teamSel = new Set(), teamSelDay = null;
 
   /* ---------- Blocks & notes tab ---------- */
-  const kmlPrefix = day => shortPrefix(day.kml.groups.flatMap(g => g.blocks).filter(b => !b.bonus).map(b => b.name));
+  const kmlPrefix = day => !day.kml ? "" : shortPrefix(day.kml.groups.flatMap(g => g.blocks).filter(b => !b.bonus).map(b => b.name));
   function shortPrefix(names){
     if(names.length < 2) return "";
     let p = names[0];
