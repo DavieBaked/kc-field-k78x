@@ -5684,7 +5684,7 @@ body.focusing{overflow:hidden}
           if(!res.ok) throw new Error(res.status);
           const html = await res.text();
           if("caches" in window){
-            const c = await caches.open("kruger-checklist-v3"), h = {headers: {"content-type": "text/html; charset=utf-8"}};
+            const c = await caches.open("kruger-checklist-v4"), h = {headers: {"content-type": "text/html; charset=utf-8"}};
             await c.put("./index.html", new Response(html, h)); await c.put("./", new Response(html, h));
           }
           try{ const reg = await navigator.serviceWorker.getRegistration(); if(reg) await reg.update(); }catch(err){}

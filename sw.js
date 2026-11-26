@@ -1,6 +1,6 @@
 // Keeps a copy of Kruger Checklist on the phone so it opens with no signal.
 // When there is signal it fetches the latest version first (and saves that), so updates arrive by themselves.
-const CACHE = "kruger-checklist-v3";
+const CACHE = "kruger-checklist-v4";
 const SHARED = "kruger-shared";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
