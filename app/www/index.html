@@ -4144,6 +4144,8 @@ body.focusing{overflow:hidden}
     if(m && m.nodes && typeof m.nodes === "object") mesh = Object.assign(mesh, m);
     if(!mesh.nick || typeof mesh.nick !== "object") mesh.nick = {};
     if(!mesh.star || typeof mesh.star !== "object") mesh.star = {};
+    // requests that were still out when the app closed: their timers are gone, so forget them
+    for(const n of Object.values(mesh.nodes)){ if(n){ n.asked = null; n.askQuiet = null; } }
   }catch(e){}
   let meshSaveT = 0;
   function meshSaveNow(){ clearTimeout(meshSaveT); try{ localStorage.setItem(MESH_KEY, JSON.stringify(mesh)); }catch(e){} }
@@ -4312,10 +4314,9 @@ body.focusing{overflow:hidden}
   function askFailed(num, kind, why){
     const n = meshStore()[String(num)];
     if(!n || !n.asked || !n.asked[kind]) return;
-    const quiet = n.askQuiet && n.askQuiet[kind];
     n.asked[kind] = null;
     n.fail = Object.assign(n.fail || {}, {[kind]: {t: Date.now(), why}});
-    if(!quiet) toast(nodeName(n) + (why === "no answer" ? " didn’t answer" : " couldn’t be reached"));
+    toast(nodeName(n) + (why === "no answer" ? " didn’t answer" : " couldn’t be reached"));
     meshChanged(true);
     setTimeout(() => meshChanged(true), FAIL_SHOW + 100);
   }
@@ -4449,7 +4450,7 @@ body.focusing{overflow:hidden}
   function setRadioState(s){
     const was = radio.state;
     radio.state = s;
-    if(s === "live"){ mesh.lastLive = Date.now(); meshSave(); if(was === "syncing"){ refit(); setTimeout(autoAsk, 60e3); } }
+    if(s === "live"){ mesh.lastLive = Date.now(); meshSave(); if(was === "syncing"){ refit(); setTimeout(autoAsk, 15e3); } }
     meshChanged(true);
     nativeStatus(true);
   }
@@ -4470,18 +4471,23 @@ body.focusing{overflow:hidden}
     const n = mesh.nodes[String(num)]; if(!n) return;
     const id = packetId();
     const at = Date.now();
-    radio.asked[id] = {num: n.num, kind, at};
-    n.asked = Object.assign(n.asked || {}, {[kind]: at});
-    n.askQuiet = Object.assign(n.askQuiet || {}, {[kind]: !!quiet});
-    if(n.fail) n.fail[kind] = null;
-    setTimeout(() => { if(n.asked && n.asked[kind] === at){ delete radio.asked[id]; askFailed(n.num, kind, "no answer"); } }, ASK_WAIT);
+    if(quiet){
+      // the automatic ones don't show anything until the answer arrives
+      if(n.asked && n.asked[kind]) return;
+      n.autoAt = Object.assign(n.autoAt || {}, {[kind]: at});
+    } else {
+      radio.asked[id] = {num: n.num, kind, at};
+      n.asked = Object.assign(n.asked || {}, {[kind]: at});
+      if(n.fail) n.fail[kind] = null;
+      setTimeout(() => { if(n.asked && n.asked[kind] === at){ delete radio.asked[id]; askFailed(n.num, kind, "no answer"); } }, ASK_WAIT);
+    }
     try{
       await send(kind === "pos"
         ? toRadio.packet({from: radio.num, to: n.num, ch: n.ch || 0, port: PORT.POSITION, payload: new Uint8Array(0), wantResponse: true, wantAck: true, id})
         : toRadio.packet({from: radio.num, to: n.num, ch: n.ch || 0, port: PORT.TELEMETRY, payload: PB.write([[2, "m", []]]), wantResponse: true, wantAck: true, id}));
       if(!quiet) toast("Asked " + nodeName(n) + " for its " + label);
-    }catch(e){ n.asked[kind] = null; if(!quiet) toast("Couldn’t send. Is the radio still connected?"); }
-    meshChanged();
+    }catch(e){ if(!quiet){ n.asked[kind] = null; toast("Couldn’t send. Is the radio still connected?"); } }
+    if(!quiet) meshChanged();
   }
   /* Every 5 minutes, quietly ask the starred LoRas (or, with none starred, the ones you can message)
      for battery and position, unless they've sent them in the last 4 minutes anyway.
@@ -4497,6 +4503,7 @@ body.focusing{overflow:hidden}
       const got = kind === "pos" ? n.posT : n.batT;
       if(got && now - got < AUTO_FRESH) continue;
       if(askedRecently(n, kind) || autoQ.some(q => q.num === n.num && q.kind === kind)) continue;
+      if(n.autoAt && n.autoAt[kind] && now - n.autoAt[kind] < AUTO_FRESH) continue;   // asked a moment ago, no answer yet
       autoQ.push({num: n.num, kind});
     }
     autoNext();
@@ -4509,6 +4516,7 @@ body.focusing{overflow:hidden}
     autoT = setTimeout(() => { autoT = 0; autoNext(); }, AUTO_GAP);
   }
   setInterval(autoAsk, AUTO_EVERY);
+  document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") setTimeout(autoAsk, 3000); });
   const askedRecently = (n, kind) => n.asked && n.asked[kind] && Date.now() - n.asked[kind] < ASK_WAIT;
 
   /* ---- demo: made-up nodes so the layout can be tried anywhere ---- */
