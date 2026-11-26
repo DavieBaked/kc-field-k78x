@@ -4893,12 +4893,12 @@ body.focusing{overflow:hidden}
   const linkType = n => n.mqtt ? "Internet (MQTT)" : n.hops === 0 ? "Direct" : n.hops > 0 ? "Relayed" : "";
   // One detail line: symbol, value, and on the far right how old it is. Tapping the age asks the node again.
   function kvRow(n, isMe, kind, value, t){
-    const asked = askedRecently(n, kind) || autoPending(n, kind);
+    const byHand = askedRecently(n, kind), asked = byHand || autoPending(n, kind);
     const fresh = !asked && t && Date.now() - t < 15000;
     const can = meshDemo || radio.state === "live";
     const what = kind === "pos" ? "position" : "battery";
     const fail = !asked && failedRecently(n, kind);
-    const age = asked ? "asking…" : fail ? fail : (t ? ago(t) : "unknown");
+    const age = asked ? (byHand ? "asking…" : "syncing…") : fail ? fail : (t ? ago(t) : "unknown");
     const cls = asked ? "" : fail ? "failed" : fresh ? "fresh" : ageClass(t);
     const bc = kind === "bat" ? batText(n).c : "";
     return '<div class="mn-line' + (bc ? " " + bc : "") + '"><span class="mn-sym" title="' + (kind === "pos" ? "Position" : "Battery") + '">' + (kind === "pos" ? ICON.pin : batIcon(n, true)) + '</span>' +
