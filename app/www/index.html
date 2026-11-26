@@ -241,11 +241,11 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 .map-ctl{position:absolute;right:10px;top:10px;display:grid;gap:6px}
 .map-pick{position:absolute;left:10px;top:10px;display:grid;gap:0;border:1px solid var(--line-strong);border-radius:12px;background:color-mix(in srgb,var(--surface) 92%,transparent);color:var(--ink);box-shadow:0 4px 14px rgb(0 0 0 / .25);overflow:hidden}
 .mp-sum{display:flex;align-items:baseline;gap:8px;padding:8px 12px;border:0;background:none;color:inherit;font:inherit;text-align:left}
-.mp-copy{display:flex;align-items:center;gap:2px;padding:2px 4px 4px 12px;border-top:1px solid var(--line)}
-.mp-copy span{font-size:calc(12px * var(--fs));color:var(--muted);margin-right:4px;white-space:nowrap}
-.mp-dir,.mp-del{display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:8px;background:none;color:var(--accent)}
-.mp-dir svg,.mp-del svg{width:16px;height:16px}
-.mp-del{color:var(--danger);margin-left:2px}
+.mp-del{display:flex;align-items:center;gap:8px;padding:8px 12px;border:0;border-top:1px solid var(--line);background:none;color:var(--danger);font:inherit;font-size:calc(14px * var(--fs));font-weight:600}
+.mp-del svg{width:15px;height:15px}
+.m-plus{cursor:pointer}
+.m-plus circle{fill:var(--accent);stroke:var(--bg);stroke-width:2}
+.m-plus path{stroke:var(--accent-ink);stroke-width:2.4;stroke-linecap:round}
 .map-pick b{font-size:calc(17px * var(--fs));font-variant-numeric:tabular-nums}
 .map-pick span{color:var(--muted);font-size:calc(13px * var(--fs))}
 .mp-sum svg{width:12px;height:12px;color:var(--muted);align-self:center}
@@ -920,6 +920,18 @@ body.focusing{overflow:hidden}
       <button class="btn primary" type="button" data-act="fl-save">Save</button>
     </div>
     <button class="link danger fl-undo" type="button" data-act="fl-unfly">Not flown</button>
+  </div>
+</div>
+<div class="modal top" id="newblk" hidden>
+  <div class="modal-card sheet" role="dialog" aria-modal="true" aria-labelledby="nb-title">
+    <h2 id="nb-title">New block</h2>
+    <label class="fl-l" for="nb-name">Name</label>
+    <input class="fl-in" id="nb-name" type="text" autocomplete="off" enterkeyhint="done">
+    <p class="vis-note" id="nb-ha"></p>
+    <div class="sum-acts">
+      <button class="btn" type="button" data-act="nb-cancel">Cancel</button>
+      <button class="btn primary" type="button" data-act="nb-add">Add block</button>
+    </div>
   </div>
 </div>
 <div class="modal top" id="issue" hidden>
@@ -2642,6 +2654,7 @@ body.focusing{overflow:hidden}
   let teamSel = new Set(), teamSelDay = null;
 
   /* ---------- Blocks & notes tab ---------- */
+  const kmlPrefix = day => shortPrefix(day.kml.groups.flatMap(g => g.blocks).filter(b => !b.bonus).map(b => b.name));
   function shortPrefix(names){
     if(names.length < 2) return "";
     let p = names[0];
@@ -2865,9 +2878,7 @@ body.focusing{overflow:hidden}
     if(!svg || (!day.kml && mode !== "mesh")) return;
     const K = day.kml || {groups: [], sections: [], roads: []};
     const P = day.kml ? proj(day) : nodeProj(), set = new Set(day.blocks);
-    const all = [];
-    for(const g of K.groups) for(const b of g.blocks) all.push(b.name);
-    const pre = shortPrefix(all);
+    const pre = kmlPrefix(day);
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     const grow = q => { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); };
     let secs = "", roads = "", blocks = "", labels = "", launches = "";
@@ -3002,6 +3013,7 @@ body.focusing{overflow:hidden}
       lab.classList.toggle("far", total > 0 && tight > total / 2);
     }
     drawMe();
+    sizePlus();
     drawNodes();
   }
   function zoomAt(f, cx, cy){
@@ -3063,8 +3075,10 @@ body.focusing{overflow:hidden}
       const wasTap = !fired && pts.size === 1 && !moved && start && Date.now() - start.t < 600 && e.type === "pointerup";
       pts.delete(e.pointerId);
       if(wasTap){
-        const poly = start.target && start.target.closest && start.target.closest("[data-block]");
-        if(poly) blockTap(map.day, poly.getAttribute("data-block"));
+        const plus = start.target && start.target.closest && start.target.closest("[data-plus]");
+        const poly = !plus && start.target && start.target.closest && start.target.closest("[data-block]");
+        if(plus) newBlockAsk(map.day, plus.getAttribute("data-plus"));
+        else if(poly) blockTap(map.day, poly.getAttribute("data-block"));
       }
       snapshot();
     };
@@ -3096,15 +3110,69 @@ body.focusing{overflow:hidden}
     if(!pill){ wrap.insertAdjacentHTML("beforeend", '<div class="map-pick" id="map-pick"></div>'); pill = $("#map-pick"); }
     const ha = bl.reduce((a, b) => a + (b.ha || 0), 0);
     const one = bl.length === 1 ? bl[0] : null;
-    const arrow = (d, rot, lbl) => '<button class="mp-dir" type="button" data-act="blk-copy" data-dir="' + d + '" aria-label="Copy it ' + lbl + '"><svg viewBox="0 0 16 16" aria-hidden="true" style="transform:rotate(' + rot + 'deg)"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
     pill.innerHTML = '<button class="mp-sum" type="button" data-act="pick-clear" aria-label="Picked blocks. Tap to unpick them all"><b>' + fmtHa1(ha) + ' ha</b><span>' + bl.length + ' picked</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>' +
-      (one ? '<div class="mp-copy"><span>Add a copy</span>' + arrow("n", 0, "north") + arrow("e", 90, "east") + arrow("s", 180, "south") + arrow("w", 270, "west") +
-        (one.bonus ? '<button class="mp-del" type="button" data-act="blk-del" aria-label="Remove this extra block"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' : "") +
-        '</div>' : "");
+      (one && one.bonus ? '<button class="mp-del" type="button" data-act="blk-del"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Remove ' + esc(blockName(day, one.id)) + '</button>' : "");
+    drawPlus(day);
+  }
+  // One block picked: a + on each side with nothing next to it. Tap one to add a block there.
+  const DIRS = {n: [0, 1, "north"], e: [1, 0, "east"], s: [0, -1, "south"], w: [-1, 0, "west"]};
+  const bboxOf = ring => { const xs = ring.map(p => p[0]), ys = ring.map(p => p[1]); return {x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys)}; };
+  function openSides(day, b){
+    const bb = bboxOf(b.ring), w = bb.x1 - bb.x0, h = bb.y1 - bb.y0, out = [];
+    const others = day.kml.groups.flatMap(g => g.blocks).filter(x => x !== b && x.ring && x.ring.length > 2).map(x => bboxOf(x.ring));
+    for(const [d, [ex, ey]] of Object.entries(DIRS)){
+      const c = {x0: bb.x0 + ex * w, x1: bb.x1 + ex * w, y0: bb.y0 + ey * h, y1: bb.y1 + ey * h}, area = w * h;
+      // taken if another block covers a quarter of that spot
+      const taken = others.some(o => {
+        const ix = Math.max(0, Math.min(c.x1, o.x1) - Math.max(c.x0, o.x0)), iy = Math.max(0, Math.min(c.y1, o.y1) - Math.max(c.y0, o.y0));
+        return ix * iy > area * 0.25;
+      });
+      if(!taken) out.push(d);
+    }
+    return out;
+  }
+  function drawPlus(day){
+    if(!map || map.day !== day) return;
+    let g = map.svg.querySelector("#m-plus");
+    if(!g){ g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.id = "m-plus"; map.svg.appendChild(g); }
+    const s = pickedOf(day), b = s.size === 1 && day.kml ? day.kml.groups.flatMap(x => x.blocks).find(x => s.has(x.id)) : null;
+    if(!b || !b.ring || b.ring.length < 3){ g.innerHTML = ""; return; }
+    const bb = bboxOf(b.ring), mx = (bb.x0 + bb.x1) / 2, my = (bb.y0 + bb.y1) / 2;
+    const at = {n: [mx, bb.y1], e: [bb.x1, my], s: [mx, bb.y0], w: [bb.x0, my]};
+    g.innerHTML = openSides(day, b).map(d => {
+      const q = map.P(at[d]);
+      return '<g class="m-plus" data-plus="' + d + '" data-x="' + q[0].toFixed(2) + '" data-y="' + q[1].toFixed(2) + '"><title>Add a block ' + DIRS[d][2] + '</title>' +
+        '<circle r="14"/><path d="M-6 0H6M0 -6V6"/></g>';
+    }).join("");
+    sizePlus();
+  }
+  // the +s stay the same size on screen at any zoom, just outside the edge
+  function sizePlus(){
+    const g = map && map.svg.querySelector("#m-plus"); if(!g) return;
+    const px = map.px || 1;
+    g.querySelectorAll(".m-plus").forEach(el => {
+      const d = el.dataset.plus, o = 16 * px, [ex, ey] = DIRS[d];
+      el.setAttribute("transform", "translate(" + (Number(el.dataset.x) + ex * o).toFixed(3) + " " + (Number(el.dataset.y) - ey * o).toFixed(3) + ") scale(" + px.toFixed(4) + ")");
+    });
+  }
+  function newBlockAsk(day, dir){
+    const s = pickedOf(day); if(s.size !== 1) return;
+    const id = [...s][0], b = day.kml.groups.flatMap(x => x.blocks).find(x => x.id === id); if(!b) return;
+    const box = $("#newblk");
+    box.dataset.dir = dir;
+    $("#nb-title").textContent = "New block " + DIRS[dir][2] + " of " + blockName(day, id);
+    const names = new Set(day.kml.groups.flatMap(x => x.blocks.map(y => y.name)));
+    const base = blockName(day, id) + dir.toUpperCase();
+    let name = base, k = 2;
+    while(names.has(name)) name = base + (k++);
+    $("#nb-name").value = name;
+    $("#nb-ha").textContent = "Same size: " + fmtHa1(b.ha) + " ha";
+    box.hidden = false;
+    setTimeout(() => { const i = $("#nb-name"); i.focus(); i.select(); }, 50);
   }
   // A copy of a block right next to it (its own width or height over), for an extra block that isn't in the KML.
   // Named after the one it came from, e.g. T1a-5 → T1a-5N, so the short codes on the map still work.
-  function copyBlock(day, dir){
+  function copyBlock(day, dir, name){
     const s = pickedOf(day); if(s.size !== 1 || !day.kml) return;
     const id = [...s][0];
     const g = day.kml.groups.find(x => x.blocks.some(b => b.id === id)); if(!g) return;
@@ -3112,13 +3180,21 @@ body.focusing{overflow:hidden}
     const xs = b.ring.map(p => p[0]), ys = b.ring.map(p => p[1]);
     const w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys);
     const dx = dir === "e" ? w : dir === "w" ? -w : 0, dy = dir === "n" ? h : dir === "s" ? -h : 0;
-    const names = new Set(day.kml.groups.flatMap(x => x.blocks.map(y => y.name)));
-    let name = b.name + dir.toUpperCase(), k = 2;
-    while(names.has(name)) name = b.name + dir.toUpperCase() + (k++);
     const nb = Object.assign({id: uid("x"), name, ha: b.ha, ring: b.ring.map(p => [r5(p[0] + dx), r5(p[1] + dy)]), bonus: true}, b.c ? {c: b.c} : {});
     g.blocks.splice(i + 1, 0, nb);
     s.clear(); s.add(nb.id);
     save(); render();
+    // widen the view if the new block is off the edge
+    setTimeout(() => {
+      if(!map || !map.vb) return;
+      const q = nb.ring.map(map.P), v = map.vb;
+      const xs = q.map(p => p[0]).concat([v.x, v.x + v.w]), ys = q.map(p => p[1]).concat([v.y, v.y + v.h]);
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+      if(x0 < v.x || y0 < v.y || x1 > v.x + v.w || y1 > v.y + v.h){
+        const pad = Math.max(x1 - x0, y1 - y0) * 0.1;   // room for its + buttons too
+        fitTo({x: x0 - pad, y: y0 - pad, w: x1 - x0 + pad * 2, h: y1 - y0 + pad * 2}, true);
+      }
+    }, 120);
     toast("Added " + blockName(day, nb.id));
   }
   function delBlock(day){
@@ -3164,7 +3240,7 @@ body.focusing{overflow:hidden}
   const blockName = (day, id) => {
     const all = day.kml ? day.kml.groups.flatMap(g => g.blocks) : [], b = all.find(x => x.id === id);
     if(!b) return id;
-    const pre = shortPrefix(all.map(x => x.name));
+    const pre = kmlPrefix(day);
     return pre && b.name.startsWith(pre) ? b.name.slice(pre.length) : b.name;
   };
   const flForm = () => ({pub: $("#fl-pub").value.trim(), priv: $("#fl-priv").value.trim(), bat: $("#fl-bat").value.trim(), bname: $("#fl-bname").value.trim()});
@@ -3422,8 +3498,7 @@ body.focusing{overflow:hidden}
     x.lineWidth = 1.5;
     for(const [a, z, c] of oSegs){ x.strokeStyle = c ? al(c, .55) : C.oLine; path([a, z], false); x.stroke(); }
     x.setLineDash([]);
-    const all = []; for(const g of day.kml.groups) for(const b of g.blocks) all.push(b.name);
-    const pre = shortPrefix(all);
+    const pre = kmlPrefix(day);
     const labels = [];
     for(const g of own){
       for(const b of g.blocks){
@@ -3783,7 +3858,14 @@ body.focusing{overflow:hidden}
     else if(act === "fl-open"){ const d = getDay(view.dayId); if(d) openFlight(d, b.dataset.block); }
     else if(act === "fl-close"){ closeFlight(false); }
     else if(act === "fl-unfly"){ if(confirmTap(b, "Tap again to set not flown")) unflyBlock(); }
-    else if(act === "blk-copy"){ if(day) copyBlock(day, b.dataset.dir); }
+    else if(act === "nb-add"){
+      const box = $("#newblk"), name = $("#nb-name").value.trim();
+      if(!day || !day.kml) return;
+      if(!name){ $("#nb-name").focus(); return; }
+      if(day.kml.groups.some(g => g.blocks.some(x => x.name === name))){ toast("There’s already a block called " + name); $("#nb-name").focus(); return; }
+      box.hidden = true; copyBlock(day, box.dataset.dir, name);
+    }
+    else if(act === "nb-cancel"){ $("#newblk").hidden = true; }
     else if(act === "blk-del"){ if(day) delBlock(day); }
     else if(act === "kml-bonus"){ kmlMode = "bonus"; $("#kml-file").click(); }
     else if(act === "pick-clear"){ if(day){ pickedOf(day).clear(); if(map) map.svg.querySelectorAll(".m-block.sel").forEach(e => e.classList.remove("sel")); updatePick(day); } }
@@ -5705,6 +5787,8 @@ body.focusing{overflow:hidden}
     if(e.key === "Escape" && menuOpen()){ closeMenu(); const mb = $("#b-menu"); if(mb) mb.focus(); return; }
     const el = e.target;
     if(e.key === "Escape" && !$("#issue").hidden){ $("#issue").hidden = true; return; }
+    if(e.key === "Escape" && !$("#newblk").hidden){ $("#newblk").hidden = true; return; }
+    if(e.key === "Enter" && el.id === "nb-name"){ e.preventDefault(); document.querySelector('[data-act="nb-add"]').click(); return; }
     if(e.key === "Enter" && el.dataset && (el.dataset.field === "drone" || el.dataset.field === "camera" || el.dataset.field === "sd")) el.blur();
     if(e.key === "Enter" && el.dataset && el.dataset.edit === "item"){
       e.preventDefault();
