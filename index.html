@@ -239,10 +239,16 @@ body.has-tabs .foot{padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))
 .map-wrap{position:relative;padding:0}
 .map{display:block;width:100%;height:min(52vh,460px);touch-action:pan-y;background:var(--map-bg);cursor:grab;user-select:none;-webkit-user-select:none}
 .map-ctl{position:absolute;right:10px;top:10px;display:grid;gap:6px}
-.map-pick{position:absolute;left:10px;top:10px;display:flex;align-items:baseline;gap:8px;padding:8px 12px;border:1px solid var(--line-strong);border-radius:12px;background:color-mix(in srgb,var(--surface) 92%,transparent);color:var(--ink);font:inherit;box-shadow:0 4px 14px rgb(0 0 0 / .25)}
+.map-pick{position:absolute;left:10px;top:10px;display:grid;gap:0;border:1px solid var(--line-strong);border-radius:12px;background:color-mix(in srgb,var(--surface) 92%,transparent);color:var(--ink);box-shadow:0 4px 14px rgb(0 0 0 / .25);overflow:hidden}
+.mp-sum{display:flex;align-items:baseline;gap:8px;padding:8px 12px;border:0;background:none;color:inherit;font:inherit;text-align:left}
+.mp-copy{display:flex;align-items:center;gap:2px;padding:2px 4px 4px 12px;border-top:1px solid var(--line)}
+.mp-copy span{font-size:calc(12px * var(--fs));color:var(--muted);margin-right:4px;white-space:nowrap}
+.mp-dir,.mp-del{display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:8px;background:none;color:var(--accent)}
+.mp-dir svg,.mp-del svg{width:16px;height:16px}
+.mp-del{color:var(--danger);margin-left:2px}
 .map-pick b{font-size:calc(17px * var(--fs));font-variant-numeric:tabular-nums}
 .map-pick span{color:var(--muted);font-size:calc(13px * var(--fs))}
-.map-pick svg{width:12px;height:12px;color:var(--muted);align-self:center}
+.mp-sum svg{width:12px;height:12px;color:var(--muted);align-self:center}
 .map-btn{width:42px;height:42px;display:grid;place-items:center;padding:0;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:calc(24px * var(--fs));line-height:1;box-shadow:0 2px 8px rgb(0 0 0 / .14)}
 .map-btn svg{width:20px;height:20px}
 .map-btn.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
@@ -2677,6 +2683,7 @@ body.focusing{overflow:hidden}
         html += '<p class="kml-day">Load the KML again to see the map for this day.</p>';
       }
       html += '<div class="kml-meta">' + (day.kml.trimmed ? '<span class="kml-day">Roads aren’t kept for older days.</span>' : "") +
+        '<button class="link" type="button" id="b-kml-bonus" data-act="kml-bonus">Add bonus KML</button>' +
         '<button class="link" type="button" id="b-kml-change" data-act="kml-load">Load a different KML</button>' +
         '<button class="link danger" type="button" id="b-kml-remove" data-act="kml-remove">Remove KML</button></div>';
     }
@@ -3083,9 +3090,62 @@ body.focusing{overflow:hidden}
     let pill = $("#map-pick");
     const s = pickedOf(day), bl = day.kml ? day.kml.groups.flatMap(g => g.blocks).filter(b => s.has(b.id)) : [];
     if(!bl.length){ if(pill) pill.remove(); return; }
-    if(!pill){ wrap.insertAdjacentHTML("beforeend", '<button class="map-pick" type="button" id="map-pick" data-act="pick-clear" aria-label="Picked blocks. Tap to unpick them all"></button>'); pill = $("#map-pick"); }
+    if(!pill){ wrap.insertAdjacentHTML("beforeend", '<div class="map-pick" id="map-pick"></div>'); pill = $("#map-pick"); }
     const ha = bl.reduce((a, b) => a + (b.ha || 0), 0);
-    pill.innerHTML = '<b>' + fmtHa1(ha) + ' ha</b><span>' + bl.length + ' picked</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+    const one = bl.length === 1 ? bl[0] : null;
+    const arrow = (d, rot, lbl) => '<button class="mp-dir" type="button" data-act="blk-copy" data-dir="' + d + '" aria-label="Copy it ' + lbl + '"><svg viewBox="0 0 16 16" aria-hidden="true" style="transform:rotate(' + rot + 'deg)"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
+    pill.innerHTML = '<button class="mp-sum" type="button" data-act="pick-clear" aria-label="Picked blocks. Tap to unpick them all"><b>' + fmtHa1(ha) + ' ha</b><span>' + bl.length + ' picked</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>' +
+      (one ? '<div class="mp-copy"><span>Add a copy</span>' + arrow("n", 0, "north") + arrow("e", 90, "east") + arrow("s", 180, "south") + arrow("w", 270, "west") +
+        (one.bonus ? '<button class="mp-del" type="button" data-act="blk-del" aria-label="Remove this extra block"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' : "") +
+        '</div>' : "");
+  }
+  // A copy of a block right next to it (its own width or height over), for an extra block that isn't in the KML.
+  // Named after the one it came from, e.g. T1a-5 → T1a-5N, so the short codes on the map still work.
+  function copyBlock(day, dir){
+    const s = pickedOf(day); if(s.size !== 1 || !day.kml) return;
+    const id = [...s][0];
+    const g = day.kml.groups.find(x => x.blocks.some(b => b.id === id)); if(!g) return;
+    const i = g.blocks.findIndex(b => b.id === id), b = g.blocks[i];
+    const xs = b.ring.map(p => p[0]), ys = b.ring.map(p => p[1]);
+    const w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys);
+    const dx = dir === "e" ? w : dir === "w" ? -w : 0, dy = dir === "n" ? h : dir === "s" ? -h : 0;
+    const names = new Set(day.kml.groups.flatMap(x => x.blocks.map(y => y.name)));
+    let name = b.name + dir.toUpperCase(), k = 2;
+    while(names.has(name)) name = b.name + dir.toUpperCase() + (k++);
+    const nb = Object.assign({id: uid("x"), name, ha: b.ha, ring: b.ring.map(p => [r5(p[0] + dx), r5(p[1] + dy)]), bonus: true}, b.c ? {c: b.c} : {});
+    g.blocks.splice(i + 1, 0, nb);
+    s.clear(); s.add(nb.id);
+    save(); render();
+    toast("Added " + blockName(day, nb.id));
+  }
+  function delBlock(day){
+    const s = pickedOf(day); if(s.size !== 1 || !day.kml) return;
+    const id = [...s][0];
+    const g = day.kml.groups.find(x => x.blocks.some(b => b.id === id && b.bonus)); if(!g) return;
+    const b = g.blocks.find(x => x.id === id), nm = blockName(day, id);
+    g.blocks = g.blocks.filter(x => x.id !== id);
+    day.blocks = day.blocks.filter(x => x !== id);
+    if(day.flights) delete day.flights[id];
+    s.clear(); save(); render();
+    toast("Removed " + nm);
+  }
+  // A bonus KML: its blocks join the day's instead of replacing them.
+  // A launch point named after a team you're not showing is filed under your team, so you see it.
+  function mergeKml(day, k){
+    const teams = teamsOf(day.kml);
+    let added = 0;
+    for(const g of k.groups){
+      for(const b of g.blocks){ b.id = uid("x"); b.bonus = true; }
+      let name = g.name;
+      if(day.teams && day.teams.length && !teams.includes(teamOf(g))) name = day.teams[0] + " · " + g.name;
+      const ex = day.kml.groups.find(x => x.name === name);
+      if(ex) ex.blocks.push(...g.blocks);
+      else day.kml.groups.push(Object.assign({}, g, {name}));
+      added += g.blocks.length;
+    }
+    day.kml.roads = (day.kml.roads || []).concat(k.roads || []);
+    day.kml.sections = (day.kml.sections || []).concat(k.sections || []);
+    return added;
   }
   // Hold: it's flown. Then the notes and battery for that flight.
   function flyBlock(day, id){
@@ -3206,10 +3266,13 @@ body.focusing{overflow:hidden}
   $("#kml-file").addEventListener("change", e => {
     const f = e.target.files && e.target.files[0];
     e.target.value = "";
-    if(f) loadKmlFile(f);
+    if(f) loadKmlFile(f, kmlMode);
+    kmlMode = null;
   });
+  let kmlMode = null;
   // Loads a KML into the day on screen. Used by the picker and by sharing a file to the app (WhatsApp → Share → Kruger).
-  function loadKmlFile(f){
+  // mode: "replace", "bonus", or nothing (a shared file: asks when the day already has a KML)
+  function loadKmlFile(f, mode){
     toast("Reading " + (f.name || "the file") + "…");
     readKmlText(f).then(text => {
       const k = parseKml(text);
@@ -3221,6 +3284,17 @@ body.focusing{overflow:hidden}
       }
       if(!k.groups.length){ toast("No blocks found in that KML."); return; }
       const day = getDay(view.dayId); if(!day) return;
+      if(day.kml && !mode){
+        askDo("This day already has a KML. Add these blocks to it as bonus blocks?", "Add as bonus", "Replace it",
+          () => loadKmlFile(f, "bonus"), () => loadKmlFile(f, "replace"));
+        return;
+      }
+      if(day.kml && mode === "bonus"){
+        const n = mergeKml(day, k);
+        forgetView(day.id); save(); render();
+        toast("Added " + n + (n === 1 ? " bonus block" : " bonus blocks"));
+        return;
+      }
       day.kml = k; day.blocks = []; day.teams = teamsOf(k).length > 1 ? null : [];
       teamSelDay = null;
       day.collapsed = day.collapsed.filter(id => id !== "blocks");
@@ -3661,9 +3735,9 @@ body.focusing{overflow:hidden}
       else if(lightStep === 1) askLight(2);
       else { closeAsk(); setTheme("light"); }
     }
-    else if(act === "mq-no"){ closeAsk(); }
+    else if(act === "mq-no"){ const f = askNoFn; closeAsk(); if(f) f(); }
     else if(act === "copy-md"){ closeMenu(); copyList(); }
-    else if(act === "kml-load"){ $("#kml-file").click(); }
+    else if(act === "kml-load"){ kmlMode = "replace"; $("#kml-file").click(); }
     else if(act === "kml-remove"){
       if(!day || !day.kml) return;
       if(day.blocks.length && !confirmTap(b, "Tap again to remove")) return;
@@ -3706,6 +3780,9 @@ body.focusing{overflow:hidden}
     else if(act === "fl-open"){ const d = getDay(view.dayId); if(d) openFlight(d, b.dataset.block); }
     else if(act === "fl-close"){ closeFlight(false); }
     else if(act === "fl-unfly"){ if(confirmTap(b, "Tap again to set not flown")) unflyBlock(); }
+    else if(act === "blk-copy"){ if(day) copyBlock(day, b.dataset.dir); }
+    else if(act === "blk-del"){ if(day) delBlock(day); }
+    else if(act === "kml-bonus"){ kmlMode = "bonus"; $("#kml-file").click(); }
     else if(act === "pick-clear"){ if(day){ pickedOf(day).clear(); if(map) map.svg.querySelectorAll(".m-block.sel").forEach(e => e.classList.remove("sel")); updatePick(day); } }
     else if(act === "fl-issue"){ flightIssue(b.dataset.v === "pub"); }
     else if(act === "iss-new"){ if(day) openIssue(day, null); }
@@ -5612,9 +5689,9 @@ body.focusing{overflow:hidden}
     }});
   }
   /* ---------- light mode confirmations, and other yes/no questions ---------- */
-  let lightStep = 0, askFn = null;
-  function askDo(q, yes, no, fn){
-    lightStep = 0; askFn = fn;
+  let lightStep = 0, askFn = null, askNoFn = null;
+  function askDo(q, yes, no, fn, noFn){
+    lightStep = 0; askFn = fn; askNoFn = noFn || null;
     $("#modal-q").textContent = q; $("#mq-yes").textContent = yes; $("#mq-no").textContent = no;
     $("#modal").hidden = false;
     $("#mq-no").focus({preventScroll:true});
@@ -5626,7 +5703,7 @@ body.focusing{overflow:hidden}
     $("#modal").hidden = false;
     $("#mq-yes").focus({preventScroll:true});
   }
-  function closeAsk(){ lightStep = 0; askFn = null; $("#modal").hidden = true; }
+  function closeAsk(){ lightStep = 0; askFn = null; askNoFn = null; $("#modal").hidden = true; }
   $("#modal").addEventListener("click", e => { if(e.target.id === "modal") closeAsk(); });
 
   document.addEventListener("keydown", e => {
