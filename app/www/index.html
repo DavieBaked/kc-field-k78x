@@ -2699,7 +2699,6 @@ body.focusing{overflow:hidden}
         html += '<p class="kml-day">Load the KML again to see the map for this day.</p>';
       }
       html += '<div class="kml-meta">' + (day.kml.trimmed ? '<span class="kml-day">Roads aren’t kept for older days.</span>' : "") +
-        '<button class="link" type="button" id="b-kml-bonus" data-act="kml-bonus">Add bonus KML</button>' +
         '<button class="link" type="button" id="b-kml-change" data-act="kml-load">Load a different KML</button>' +
         '<button class="link danger" type="button" id="b-kml-remove" data-act="kml-remove">Remove KML</button></div>';
     }
@@ -3815,7 +3814,7 @@ body.focusing{overflow:hidden}
     }
     else if(act === "mq-no"){ const f = askNoFn; closeAsk(); if(f) f(); }
     else if(act === "copy-md"){ closeMenu(); copyList(); }
-    else if(act === "kml-load"){ kmlMode = "replace"; $("#kml-file").click(); }
+    else if(act === "kml-load"){ kmlMode = null; $("#kml-file").click(); }   // on a day with a KML it asks: bonus or replace
     else if(act === "kml-remove"){
       if(!day || !day.kml) return;
       if(day.blocks.length && !confirmTap(b, "Tap again to remove")) return;
